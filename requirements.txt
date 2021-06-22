@@ -1,0 +1,11 @@
+requests
+pydash
+tinydb
+PySide2
+pyobjc
+playsound
+evernote3
+oauth2
+xmltodict
+dicttoxml
+peewee

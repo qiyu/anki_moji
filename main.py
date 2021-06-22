@@ -1,11 +1,9 @@
 # This Python file uses the following encoding: utf-8
 import os
-from multiprocessing.pool import ThreadPool
 
 from mojidicttool import mojidict_server, storage
 
 TTS_DIR_PATH = '/Users/qiyu/Library/ApplicationSupport/Anki2/qiyu/collection.media'
-_thread_pool = ThreadPool(1)
 
 
 def download_all():

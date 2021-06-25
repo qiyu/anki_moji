@@ -7,8 +7,7 @@ from typing import Iterable
 
 import requests
 
-import utils
-from mojidicttool.model import Word
+from . import utils
 
 URL_COLLECTION = 'https://api.mojidict.com/parse/functions/folder-fetchContentWithRelatives'
 URL_TTS = 'https://api.mojidict.com/parse/functions/fetchTts_v2'
@@ -59,13 +58,13 @@ class MojiServer:
             target = (utils.get(row, 'target'))
             if row['targetType'] != 102:
                 continue
-            word = Word(row['title'],
-                        row['targetId'],
-                        row['targetType'],
-                        utils.get(target, 'excerpt'),
-                        utils.get(target, 'spell'),
-                        utils.get(target, 'accent'),
-                        utils.get(target, 'pron'))
+            word = MojiWord(row['title'],
+                            row['targetId'],
+                            row['targetType'],
+                            utils.get(target, 'excerpt'),
+                            utils.get(target, 'spell'),
+                            utils.get(target, 'accent'),
+                            utils.get(target, 'pron'))
             mojiwords.append(word)
         return mojiwords
 
@@ -94,9 +93,5 @@ class MojiServer:
             "_ClientVersion": CLIENT_VERSION
         })
         self.session_token = utils.get(r.json(), 'sessionToken')
-
-
-server = MojiServer()
-server.login('qiyu.one@gmail.com', '11301127')
-for i in server.fetch_all_from_server():
-    print(server.get_tts_url(i))
+        if not self.session_token:
+            raise Exception('登录失败')

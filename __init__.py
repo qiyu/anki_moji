@@ -1,3 +1,5 @@
+from multiprocessing.pool import ThreadPool
+
 from PyQt5.QtWidgets import QAction
 from aqt import mw
 
@@ -5,7 +7,8 @@ from .core.gui import MainWindow
 
 
 def activate():
-    window = MainWindow()
+    thread_pool = ThreadPool(1)
+    window = MainWindow(thread_pool)
     window.exec_()
 
 

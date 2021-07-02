@@ -2,3 +2,4 @@ venv
 .tts
 .idea
 /meta.json
+/config.json

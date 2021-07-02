@@ -7,10 +7,8 @@ from .core.gui import MainWindow
 
 
 def activate():
-    thread_pool = ThreadPool(1)
-    window = MainWindow(thread_pool)
+    window = MainWindow()
     window.exec_()
-
 
 action = QAction('从Moji导入', mw)
 action.triggered.connect(activate)

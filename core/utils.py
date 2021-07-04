@@ -5,8 +5,8 @@ from aqt import mw
 
 from . import styles
 
-MODEL_NAME = 'MOJITEST_MODEL'
-DECK_NAME = 'MOJITEST_DECK'
+MODEL_NAME = 'Moji'
+DECK_NAME = 'Moji'
 
 
 def get_config():
@@ -83,9 +83,6 @@ def create_new_model(collection):
         collection.models.addField(model, collection.models.newField(field))
     template = create_templates(collection)
     collection.models.addTemplate(model, template)
-    # todo 验证是否可以不设置id
-    # model['id'] = randint(100000, 1000000)  # Essential for upgrade detection
-    collection.models.update(model)
     return model
 
 

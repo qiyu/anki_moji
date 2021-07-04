@@ -5,9 +5,10 @@
 
 from PyQt5.QtWidgets import QDialog, QLabel, QLineEdit, QPushButton, QFormLayout, QVBoxLayout, QHBoxLayout, \
     QPlainTextEdit
+from anki import notes
 from aqt import mw
 
-from . import utils
+from . import utils, storage
 from .mojidict_server import MojiServer
 
 
@@ -72,16 +73,23 @@ class ImportWindow(QDialog):
         self.setLayout(main_layout)
 
     def import_button_clicked(self):
-        # for r in self.server.fetch_all_from_server():
-        #     storage.save_tts_file(r.target_id, self.moji_server.get_tts_url(r))
-        utils.prepare_model(mw.col)
-
-    def format_row(self, r):
-        try:
-            return '\t'.join([r.target_id, str(r.target_type),
-                              r.title, r.spell, r.accent, r.pron, r.excerpt,
-                              f'[sound:moji_{r.target_id}.mp3]',
-                              f'<a href="https://www.mojidict.com/details/{r.target_id}">Moji Web</a>'])
-        except Exception:
-            print("处理异常", r.spell)
-            raise
+        model = utils.prepare_model(mw.col)
+        for r in self.moji_server.fetch_all_from_server():
+            note_dupes = mw.col.findNotes(f'target_id:"{r.target_id}"', f'deck:{utils.DECK_NAME}')
+            if note_dupes:
+                print(f'跳过重复单词:{r.target_id} {r.title}')
+                continue
+            print(f'保存单词:{r.target_id} {r.title}')
+            storage.save_tts_file(r.target_id, self.moji_server.get_tts_url(r))
+            note = notes.Note(mw.col, model)
+            note['target_id'] = r.target_id
+            note['target_type'] = str(r.target_type)
+            note['sound'] = f'[sound:moji_{r.target_id}.mp3]'
+            note['link'] = f'<a href="https://www.mojidict.com/details/{r.target_id}">Moji Web</a>'
+            note['spell'] = r.spell
+            note['pron'] = r.pron
+            note['excerpt'] = r.excerpt
+            note['accent'] = r.accent
+            note['title'] = r.title
+            mw.col.addNote(note)
+        print('执行导入单词结束')

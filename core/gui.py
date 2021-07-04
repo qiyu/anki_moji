@@ -2,7 +2,7 @@
 # -*- coding: UTF-8 -*-
 # Created by yu.qi on 2021/06/25.
 # Mail:yu.qi@qunar.com
-
+from PyQt5.QtCore import QThreadPool, pyqtSignal, pyqtSlot, QRunnable
 from PyQt5.QtWidgets import QDialog, QLabel, QLineEdit, QPushButton, QFormLayout, QVBoxLayout, QHBoxLayout, \
     QPlainTextEdit
 from anki import notes
@@ -53,33 +53,65 @@ class MainWindow(QDialog):
 
 
 class ImportWindow(QDialog):
+    busy_signal = pyqtSignal(bool)
+    log_signal = pyqtSignal(str)
+
     def __init__(self, moji_server, parent=None):
         QDialog.__init__(self, parent)
         self.moji_server: MojiServer = moji_server
-
         self.import_button = QPushButton('导入')
         self.log_text = QPlainTextEdit()
+        self.thread_pool = QThreadPool(self)
+        self.thread_pool.setMaxThreadCount(1)
+        self.busy_signal.connect(self.change_busy)
+        self.log_signal.connect(self.add_log)
         self.init_window()
         self.show()
 
     def init_window(self):
         self.setWindowTitle('从Moji导入')
         self.log_text.setReadOnly(True)
-        self.log_text.setMinimumWidth(300)
+        self.log_text.setMinimumWidth(400)
         self.import_button.clicked.connect(self.import_button_clicked)
         main_layout = QVBoxLayout()
         main_layout.addWidget(self.import_button)
         main_layout.addWidget(self.log_text)
         self.setLayout(main_layout)
 
+    @pyqtSlot(bool)
+    def change_busy(self, value):
+        self.import_button.setDisabled(value)
+
+    @pyqtSlot(str)
+    def add_log(self, value):
+        if value:
+            self.log_text.appendPlainText(value)
+        else:
+            self.log_text.clear()
+
     def import_button_clicked(self):
+        self.thread_pool.start(WordLoader(self.moji_server, self.busy_signal, self.log_signal))
+
+
+class WordLoader(QRunnable):
+    def __init__(self, moji_server, busy_signal, log_signal):
+        super().__init__()
+        self.moji_server = moji_server
+        self.busy_signal = busy_signal
+        self.log_signal = log_signal
+
+    def run(self) -> None:
+        self.busy_signal.emit(True)
+        self.log_signal.emit('')
         model = utils.prepare_model(mw.col)
+        imported_count = 0
+        skipped_count = 0
         for r in self.moji_server.fetch_all_from_server():
             note_dupes = mw.col.findNotes(f'target_id:"{r.target_id}"', f'deck:{utils.DECK_NAME}')
             if note_dupes:
-                print(f'跳过重复单词:{r.target_id} {r.title}')
+                skipped_count += 1
+                self.log_signal.emit(f'跳过重复单词:{r.target_id} {r.title}')
                 continue
-            print(f'保存单词:{r.target_id} {r.title}')
             storage.save_tts_file(r.target_id, self.moji_server.get_tts_url(r))
             note = notes.Note(mw.col, model)
             note['target_id'] = r.target_id
@@ -92,4 +124,7 @@ class ImportWindow(QDialog):
             note['accent'] = r.accent
             note['title'] = r.title
             mw.col.addNote(note)
-        print('执行导入单词结束')
+            imported_count += 1
+            self.log_signal.emit(f'增加单词:{r.target_id} {r.title}')
+        self.log_signal.emit(f'执行结束,共增加{imported_count}个单词,跳过{skipped_count}个单词')
+        self.busy_signal.emit(False)

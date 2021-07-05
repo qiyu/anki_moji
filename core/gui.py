@@ -60,6 +60,8 @@ class ImportWindow(QDialog):
         QDialog.__init__(self, parent)
         self.moji_server: MojiServer = moji_server
         self.import_button = QPushButton('导入')
+        self.model_name_field = QLineEdit()
+        self.deck_name_field = QLineEdit()
         self.log_text = QPlainTextEdit()
         self.thread_pool = QThreadPool(self)
         self.thread_pool.setMaxThreadCount(1)
@@ -73,7 +75,16 @@ class ImportWindow(QDialog):
         self.log_text.setReadOnly(True)
         self.log_text.setMinimumWidth(400)
         self.import_button.clicked.connect(self.import_button_clicked)
+        model_name_label = QLabel('Note名称:')
+        deck_name_label = QLabel('Deck名称:')
+        config = utils.get_config()
+        self.model_name_field.setText(config.get('model_name') or 'Moji')
+        self.deck_name_field.setText(config.get('deck_name') or 'Moji')
+        import_form = QFormLayout()
+        import_form.addRow(model_name_label, self.model_name_field)
+        import_form.addRow(deck_name_label, self.deck_name_field)
         main_layout = QVBoxLayout()
+        main_layout.addLayout(import_form)
         main_layout.addWidget(self.import_button)
         main_layout.addWidget(self.log_text)
         self.setLayout(main_layout)
@@ -90,24 +101,31 @@ class ImportWindow(QDialog):
             self.log_text.clear()
 
     def import_button_clicked(self):
-        self.thread_pool.start(WordLoader(self.moji_server, self.busy_signal, self.log_signal))
+        model_name = self.model_name_field.text()
+        deck_name = self.deck_name_field.text()
+        utils.update_config({'model_name': model_name, 'deck_name': deck_name})
+        if model_name and deck_name:
+            self.thread_pool.start(WordLoader(self.moji_server, self.busy_signal, self.log_signal,
+                                              model_name, deck_name))
 
 
 class WordLoader(QRunnable):
-    def __init__(self, moji_server, busy_signal, log_signal):
+    def __init__(self, moji_server, busy_signal, log_signal, model_name, deck_name):
         super().__init__()
         self.moji_server = moji_server
         self.busy_signal = busy_signal
         self.log_signal = log_signal
+        self.model_name = model_name
+        self.deck_name = deck_name
 
     def run(self) -> None:
         self.busy_signal.emit(True)
         self.log_signal.emit('')
-        model = utils.prepare_model(mw.col)
+        model = utils.prepare_model(self.model_name,self.deck_name,mw.col)
         imported_count = 0
         skipped_count = 0
         for r in self.moji_server.fetch_all_from_server():
-            note_dupes = mw.col.findNotes(f'target_id:"{r.target_id}"', f'deck:{utils.DECK_NAME}')
+            note_dupes = mw.col.findNotes(f'target_id:"{r.target_id}"', f'deck:{self.deck_name}')
             if note_dupes:
                 skipped_count += 1
                 self.log_signal.emit(f'跳过重复单词:{r.target_id} {r.title}')

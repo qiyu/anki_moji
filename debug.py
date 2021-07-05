@@ -2,14 +2,15 @@ import sys
 
 from PyQt5.QtWidgets import QApplication
 
-from core import utils
 from core.gui import MainWindow
 
 
-def a():
+def main():
+    # 必须要将QApplication赋值到一个变量，否则会被自动回收
     app = QApplication(sys.argv)
     window = MainWindow()
     sys.exit(window.exec_())
 
-def b():
-    utils.prepare_model()
+
+if __name__ == '__main__':
+    main()

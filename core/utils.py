@@ -5,24 +5,25 @@ from aqt import mw
 
 from . import styles
 
-MODEL_NAME = 'Moji'
-DECK_NAME = 'Moji'
-
 
 def get_config():
     try:
         config_file = os.path.join(get_addon_dir(), 'config.json')
         with open(config_file, 'r') as f:
             config = json.loads(f.read())
+        if not config:
+            config = {}
     except IOError:
         config = {}
     return config
 
 
 def update_config(config: dict):
+    origin = get_config()
+    origin.update(config)
     config_file = os.path.join(get_addon_dir(), 'config.json')
     with open(config_file, 'w') as f:
-        json.dump(config, f, sort_keys=True, indent=2)
+        json.dump(origin, f, sort_keys=True, indent=2)
 
 
 def get(obj: dict, path: str):
@@ -50,34 +51,34 @@ def get_addon_dir():
 fields = ['target_id', 'target_type', 'title', 'spell', 'accent', 'pron', 'excerpt', 'sound', 'link', 'note']
 
 
-def prepare_model(collection):
+def prepare_model(model_name, deck_name, collection):
     """
     Returns a model for our future notes.
     Creates a deck to keep them.
     """
-    if is_model_exist(collection, fields):
-        model = collection.models.byName(MODEL_NAME)
+    if is_model_exist(model_name, collection, fields):
+        model = collection.models.byName(model_name)
     else:
-        model = create_new_model(collection)
+        model = create_new_model(model_name, collection)
     # Create a deck "LinguaLeo" and write id to deck_id
-    model['did'] = collection.decks.id(DECK_NAME)
+    model['did'] = collection.decks.id(deck_name)
     collection.models.setCurrent(model)
     collection.models.save(model)
     return model
 
 
-def is_model_exist(collection, fields):
-    name_exist = MODEL_NAME in collection.models.allNames()
+def is_model_exist(model_name, collection, fields):
+    name_exist = model_name in collection.models.allNames()
     if name_exist:
         fields_ok = collection.models.fieldNames(collection.models.byName(
-            MODEL_NAME)) == fields
+            model_name)) == fields
     else:
         fields_ok = False
     return name_exist and fields_ok
 
 
-def create_new_model(collection):
-    model = collection.models.new(MODEL_NAME)
+def create_new_model(model_name, collection):
+    model = collection.models.new(model_name)
     model['css'] = styles.model_css_class
     for field in fields:
         collection.models.addField(model, collection.models.newField(field))

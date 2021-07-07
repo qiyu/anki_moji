@@ -2,6 +2,8 @@
 # -*- coding: UTF-8 -*-
 # Created by yu.qi on 2021/06/25.
 # Mail:yu.qi@qunar.com
+import json
+
 from PyQt5.QtCore import QThreadPool, pyqtSignal, pyqtSlot, QRunnable
 from PyQt5.QtWidgets import QDialog, QLabel, QLineEdit, QPushButton, QFormLayout, QVBoxLayout, QHBoxLayout, \
     QPlainTextEdit
@@ -48,6 +50,7 @@ class MainWindow(QDialog):
     def login_button_clicked(self):
         utils.update_config({'username': self.login_field.text(), 'password': self.pass_field.text()})
         self.moji_server.login(self.login_field.text(), self.pass_field.text())
+        self.close()
         window = ImportWindow(self.moji_server)
         window.exec_()
 
@@ -121,7 +124,7 @@ class WordLoader(QRunnable):
     def run(self) -> None:
         self.busy_signal.emit(True)
         self.log_signal.emit('')
-        model = utils.prepare_model(self.model_name,self.deck_name,mw.col)
+        model = utils.prepare_model(self.model_name, self.deck_name, mw.col)
         imported_count = 0
         skipped_count = 0
         for r in self.moji_server.fetch_all_from_server():
@@ -141,7 +144,11 @@ class WordLoader(QRunnable):
             note['excerpt'] = r.excerpt
             note['accent'] = r.accent
             note['title'] = r.title
-            mw.col.addNote(note)
+            try:
+                mw.col.addNote(note)
+            except Exception:
+                print('添加单词异常:' + json.dumps(r.__dict__, ensure_ascii=False))
+                raise
             imported_count += 1
             self.log_signal.emit(f'增加单词:{r.target_id} {r.title}')
         self.log_signal.emit(f'执行结束,共增加{imported_count}个单词,跳过{skipped_count}个单词')

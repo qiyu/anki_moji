@@ -26,6 +26,7 @@ class MojiWord:
     excerpt: str
     spell: str
     accent: str
+
     pron: str
 
 
@@ -61,10 +62,10 @@ class MojiServer:
             word = MojiWord(row['title'],
                             row['targetId'],
                             row['targetType'],
-                            utils.get(target, 'excerpt'),
-                            utils.get(target, 'spell'),
-                            utils.get(target, 'accent'),
-                            utils.get(target, 'pron'))
+                            utils.get(target, 'excerpt') or '',
+                            utils.get(target, 'spell') or '',
+                            utils.get(target, 'accent') or '',
+                            utils.get(target, 'pron') or '')
             mojiwords.append(word)
         return mojiwords
 

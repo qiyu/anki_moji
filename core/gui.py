@@ -123,12 +123,22 @@ class WordLoader(QRunnable):
 
     def run(self) -> None:
         self.busy_signal.emit(True)
+        try:
+            self.save_words()
+        finally:
+            self.busy_signal.emit(False)
+
+    def save_words(self):
         self.log_signal.emit('')
         model = utils.prepare_model(self.model_name, self.deck_name, mw.col)
         imported_count = 0
         skipped_count = 0
         for r in self.moji_server.fetch_all_from_server():
-            note_dupes = mw.col.findNotes(f'target_id:"{r.target_id}"', f'deck:{self.deck_name}')
+            try:
+                note_dupes = mw.col.findNotes(f'target_id:{r.target_id}')
+            except Exception:
+                print('查询单词异常:' + json.dumps(r.__dict__, ensure_ascii=False))
+                raise
             if note_dupes:
                 skipped_count += 1
                 self.log_signal.emit(f'跳过重复单词:{r.target_id} {r.title}')
@@ -152,4 +162,3 @@ class WordLoader(QRunnable):
             imported_count += 1
             self.log_signal.emit(f'增加单词:{r.target_id} {r.title}')
         self.log_signal.emit(f'执行结束,共增加{imported_count}个单词,跳过{skipped_count}个单词')
-        self.busy_signal.emit(False)

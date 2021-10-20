@@ -135,7 +135,7 @@ class WordLoader(QRunnable):
         skipped_count = 0
         for r in self.moji_server.fetch_all_from_server():
             try:
-                note_dupes = mw.col.findNotes(f'target_id:{r.target_id}')
+                note_dupes = mw.col.findNotes(f'deck:{self.deck_name} and target_id:{r.target_id}')
             except Exception:
                 print('查询单词异常:' + json.dumps(r.__dict__, ensure_ascii=False))
                 raise

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: UTF-8 -*-
 # Created by yu.qi on 2021/06/25.
-# Mail:yu.qi@qunar.com
+# Mail:qiyu.one@gmail.com
 import json
 
 from PyQt5.QtCore import QThreadPool, pyqtSignal, pyqtSlot, QRunnable

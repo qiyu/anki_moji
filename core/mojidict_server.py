@@ -34,20 +34,20 @@ class MojiServer:
     def __init__(self):
         self.session_token = None
 
-    def fetch_all_from_server(self) -> Iterable[MojiWord]:
+    def fetch_all_from_server(self, dir_id) -> Iterable[MojiWord]:
         self.ensure_login()
         page_index = 1
         while True:
-            mojiwords = self.fetch_from_server(page_index)
+            mojiwords = self.fetch_from_server(dir_id, page_index)
             for mojiword in mojiwords:
                 yield mojiword
             page_index += 1
             if not mojiwords:
                 break
 
-    def fetch_from_server(self, page_index):
+    def fetch_from_server(self, dir_id, page_index):
         r = requests.post(URL_COLLECTION, json={
-            "fid": "", "pageIndex": page_index, "count": 30, "sortType": 0,
+            "fid": dir_id, "pageIndex": page_index, "count": 30, "sortType": 0,
             "_SessionToken": self.session_token,
             "_ApplicationId": APPLICATION_ID,
             "_InstallationId": INSTALLATION_ID,

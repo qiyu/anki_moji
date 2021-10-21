@@ -65,6 +65,7 @@ class ImportWindow(QDialog):
         self.import_button = QPushButton('导入')
         self.model_name_field = QLineEdit()
         self.deck_name_field = QLineEdit()
+        self.dir_id_field = QLineEdit()
         self.log_text = QPlainTextEdit()
         self.thread_pool = QThreadPool(self)
         self.thread_pool.setMaxThreadCount(1)
@@ -80,12 +81,15 @@ class ImportWindow(QDialog):
         self.import_button.clicked.connect(self.import_button_clicked)
         model_name_label = QLabel('Note名称:')
         deck_name_label = QLabel('Deck名称:')
+        dir_id_label = QLabel('目录ID:')
         config = utils.get_config()
         self.model_name_field.setText(config.get('model_name') or 'Moji')
         self.deck_name_field.setText(config.get('deck_name') or 'Moji')
+        self.dir_id_field.setText('')
         import_form = QFormLayout()
         import_form.addRow(model_name_label, self.model_name_field)
         import_form.addRow(deck_name_label, self.deck_name_field)
+        import_form.addRow(dir_id_label, self.dir_id_field)
         main_layout = QVBoxLayout()
         main_layout.addLayout(import_form)
         main_layout.addWidget(self.import_button)
@@ -104,22 +108,24 @@ class ImportWindow(QDialog):
             self.log_text.clear()
 
     def import_button_clicked(self):
-        model_name = self.model_name_field.text()
-        deck_name = self.deck_name_field.text()
+        model_name = self.model_name_field.text().strip()
+        deck_name = self.deck_name_field.text().strip()
+        dir_id = self.dir_id_field.text().strip()
         utils.update_config({'model_name': model_name, 'deck_name': deck_name})
         if model_name and deck_name:
             self.thread_pool.start(WordLoader(self.moji_server, self.busy_signal, self.log_signal,
-                                              model_name, deck_name))
+                                              model_name, deck_name, dir_id))
 
 
 class WordLoader(QRunnable):
-    def __init__(self, moji_server, busy_signal, log_signal, model_name, deck_name):
+    def __init__(self, moji_server, busy_signal, log_signal, model_name, deck_name, dir_id):
         super().__init__()
         self.moji_server = moji_server
         self.busy_signal = busy_signal
         self.log_signal = log_signal
         self.model_name = model_name
         self.deck_name = deck_name
+        self.dir_id = dir_id
 
     def run(self) -> None:
         self.busy_signal.emit(True)
@@ -133,7 +139,7 @@ class WordLoader(QRunnable):
         model = utils.prepare_model(self.model_name, self.deck_name, mw.col)
         imported_count = 0
         skipped_count = 0
-        for r in self.moji_server.fetch_all_from_server():
+        for r in self.moji_server.fetch_all_from_server(self.dir_id):
             try:
                 note_dupes = mw.col.findNotes(f'deck:{self.deck_name} and target_id:{r.target_id}')
             except Exception:

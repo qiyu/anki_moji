@@ -136,7 +136,10 @@ class WordLoader(QRunnable):
 
     def save_words(self):
         self.log_signal.emit('')
-        model = utils.prepare_model(self.model_name, self.deck_name, mw.col)
+        if mw is None:
+            model = None
+        else:
+            model = utils.prepare_model(self.model_name, self.deck_name, mw.col)
         imported_count = 0
         skipped_count = 0
         for r in self.moji_server.fetch_all_from_server(self.dir_id):

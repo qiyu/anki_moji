@@ -16,6 +16,8 @@ URL_LOGIN = 'https://api.mojidict.com/parse/login'
 CLIENT_VERSION = 'js3.4.1'
 APPLICATION_ID = 'E62VyFVLMiW7kvbtVq3p'
 INSTALLATION_ID = '5a06ea1a-8ce4-4943-9c59-dcac449812a9'
+headers = {
+    'user-agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/99.0.4844.51 Safari/537.36'}
 
 
 @dataclass
@@ -51,7 +53,8 @@ class MojiServer:
             "_SessionToken": self.session_token,
             "_ApplicationId": APPLICATION_ID,
             "_InstallationId": INSTALLATION_ID,
-            "_ClientVersion": CLIENT_VERSION})
+            "_ClientVersion": CLIENT_VERSION
+        }, headers=headers)
         data = (r.json())
         rows = utils.get(data, 'result.result')
         mojiwords = []
@@ -78,7 +81,7 @@ class MojiServer:
             "_ApplicationId": APPLICATION_ID,
             "_InstallationId": INSTALLATION_ID,
             "_ClientVersion": CLIENT_VERSION
-        })
+        }, headers=headers)
         return utils.get(r.json(), 'result.result.url')
 
     def ensure_login(self):
@@ -92,7 +95,7 @@ class MojiServer:
             "_ApplicationId": APPLICATION_ID,
             "_InstallationId": INSTALLATION_ID,
             "_ClientVersion": CLIENT_VERSION
-        },headers={'user-agent':'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/99.0.4844.51 Safari/537.36'})
+        }, headers=headers)
         self.session_token = utils.get(r.json(), 'sessionToken')
         if not self.session_token:
             raise Exception('登录失败')

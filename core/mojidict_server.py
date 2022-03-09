@@ -13,9 +13,9 @@ URL_COLLECTION = 'https://api.mojidict.com/parse/functions/folder-fetchContentWi
 URL_TTS = 'https://api.mojidict.com/parse/functions/fetchTts_v2'
 URL_LOGIN = 'https://api.mojidict.com/parse/login'
 
-CLIENT_VERSION = 'js2.12.0'
+CLIENT_VERSION = 'js3.4.1'
 APPLICATION_ID = 'E62VyFVLMiW7kvbtVq3p'
-INSTALLATION_ID = '7d959a18-48c4-243c-7486-632147466544'
+INSTALLATION_ID = '5a06ea1a-8ce4-4943-9c59-dcac449812a9'
 
 
 @dataclass
@@ -92,7 +92,7 @@ class MojiServer:
             "_ApplicationId": APPLICATION_ID,
             "_InstallationId": INSTALLATION_ID,
             "_ClientVersion": CLIENT_VERSION
-        })
+        },headers={'user-agent':'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/99.0.4844.51 Safari/537.36'})
         self.session_token = utils.get(r.json(), 'sessionToken')
         if not self.session_token:
             raise Exception('登录失败')

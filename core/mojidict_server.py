@@ -8,6 +8,7 @@ from typing import Iterable
 import requests
 
 from . import utils
+from .common import retry
 
 URL_COLLECTION = 'https://api.mojidict.com/parse/functions/folder-fetchContentWithRelatives'
 URL_TTS = 'https://api.mojidict.com/parse/functions/fetchTts_v2'
@@ -72,6 +73,7 @@ class MojiServer:
             mojiwords.append(word)
         return mojiwords
 
+    @retry(times=3)
     def get_tts_url(self, word: MojiWord):
         self.ensure_login()
         r = requests.post(URL_TTS, json={
@@ -82,6 +84,8 @@ class MojiServer:
             "_InstallationId": INSTALLATION_ID,
             "_ClientVersion": CLIENT_VERSION
         }, headers=headers)
+        if r.status_code != 200:
+            raise Exception(f'获取单词发音异常, {word.target_id}')
         return utils.get(r.json(), 'result.result.url')
 
     def ensure_login(self):

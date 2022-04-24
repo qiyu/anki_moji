@@ -2,6 +2,7 @@
 # -*- coding: UTF-8 -*-
 # Created by yu.qi on 2021/03/16.
 # Mail:qiyu.one@gmail.com
+import time
 from dataclasses import dataclass
 from typing import Iterable
 
@@ -47,6 +48,7 @@ class MojiServer:
             page_index += 1
             if not mojiwords:
                 break
+            time.sleep(1)
 
     def fetch_from_server(self, dir_id, page_index):
         r = requests.post(URL_COLLECTION, json={

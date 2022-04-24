@@ -8,7 +8,7 @@ import os
 import requests
 
 
-from core import common
+from . import common
 
 
 def save_tts_file(target_id, url):

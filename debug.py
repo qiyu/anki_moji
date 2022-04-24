@@ -3,8 +3,8 @@ import sys
 
 from PyQt5.QtWidgets import QApplication
 
-from core import common
-from core.gui import MainWindow
+from .core import common
+from .core.gui import MainWindow
 
 
 def main():

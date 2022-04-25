@@ -1,10 +1,12 @@
+import datetime
 import logging
 import time
 
 no_anki_mode = False
+interrupted = False
 
 
-def retry(times=1):
+def retry(times=1, interval=1):
     def decorator(func):
 
         def target(*args, **kwargs):
@@ -15,12 +17,16 @@ def retry(times=1):
                 except Exception as e:
                     if actual_times <= times:
                         actual_times += 1
-                        logging.debug(f'出现异常, 1秒后第{actual_times}重试')
-                        time.sleep(1)
+                        logging.debug(f'出现异常, {interval}秒后第{actual_times}次重试')
+                        time.sleep(interval)
                     else:
-                        logging.debug(f'重试{times}次依然失败, 放弃重试')
+                        logging.debug(f'重试{times}次后依然失败, 放弃重试')
                         raise e
 
         return target
 
     return decorator
+
+
+def common_log(content):
+    print(datetime.datetime.now().strftime('%Y-%m-%e %H:%M:%S') + ' anki_moji ' + content)

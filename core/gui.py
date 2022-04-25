@@ -5,13 +5,15 @@
 import json
 import logging
 
+from PyQt5 import QtGui
 from PyQt5.QtCore import QThreadPool, pyqtSignal, pyqtSlot, QRunnable
 from PyQt5.QtWidgets import QDialog, QLabel, QLineEdit, QPushButton, QFormLayout, QVBoxLayout, QHBoxLayout, \
-    QPlainTextEdit
+    QPlainTextEdit, QMessageBox
 
 from aqt import mw
 
 from . import utils, storage, common
+from .common import common_log
 from .mojidict_server import MojiServer
 
 
@@ -50,7 +52,12 @@ class MainWindow(QDialog):
 
     def login_button_clicked(self):
         utils.update_config({'username': self.login_field.text(), 'password': self.pass_field.text()})
-        self.moji_server.login(self.login_field.text(), self.pass_field.text())
+        try:
+            self.moji_server.login(self.login_field.text(), self.pass_field.text())
+        except Exception as e:
+            QMessageBox.critical(self, '', '登录失败:' + str(e))
+            return
+
         self.close()
         window = ImportWindow(self.moji_server)
         window.exec_()
@@ -62,6 +69,7 @@ class ImportWindow(QDialog):
 
     def __init__(self, moji_server, parent=None):
         QDialog.__init__(self, parent)
+        common.interrupted = False
         self.moji_server: MojiServer = moji_server
         self.import_button = QPushButton('导入')
         self.model_name_field = QLineEdit()
@@ -116,6 +124,13 @@ class ImportWindow(QDialog):
         if model_name and deck_name:
             self.thread_pool.start(WordLoader(self.moji_server, self.busy_signal, self.log_signal,
                                               model_name, deck_name, dir_id))
+        else:
+            QMessageBox.critical(self, '', 'Deck名称和Note名称必填')
+
+    def closeEvent(self, a0: QtGui.QCloseEvent) -> None:
+        common_log('关闭导入窗口')
+        common.interrupted = True
+        self.thread_pool.waitForDone()
 
 
 class WordLoader(QRunnable):
@@ -148,11 +163,16 @@ class WordLoader(QRunnable):
         imported_count = 0
         skipped_count = 0
         for r in self.moji_server.fetch_all_from_server(self.dir_id):
+            if common.interrupted:
+                common_log('导入单词终止')
+                common.interrupted = False
+                return
+
             if common.no_anki_mode:
                 logging.debug(f'获取到单词{r.title}')
             else:
                 try:
-                    note_dupes = mw.col.findNotes(f'deck:{self.deck_name} and target_id:{r.target_id}')
+                    note_dupes = mw.col.find_notes(f'deck:{self.deck_name} and target_id:{r.target_id}')
                 except Exception:
                     print('查询单词异常:' + json.dumps(r.__dict__, ensure_ascii=False))
                     raise

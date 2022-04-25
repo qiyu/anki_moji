@@ -57,20 +57,20 @@ def prepare_model(model_name, deck_name, collection):
     Creates a deck to keep them.
     """
     if is_model_exist(model_name, collection, fields):
-        model = collection.models.byName(model_name)
+        model = collection.models.by_name(model_name)
     else:
         model = create_new_model(model_name, collection)
     # Create a deck "LinguaLeo" and write id to deck_id
     model['did'] = collection.decks.id(deck_name)
-    collection.models.setCurrent(model)
+    collection.models.set_current(model)
     collection.models.save(model)
     return model
 
 
 def is_model_exist(model_name, collection, fields):
-    name_exist = model_name in collection.models.allNames()
+    name_exist = model_name in collection.models.all_names_and_ids()
     if name_exist:
-        fields_ok = collection.models.fieldNames(collection.models.byName(
+        fields_ok = collection.models.field_names(collection.models.by_name(
             model_name)) == fields
     else:
         fields_ok = False
@@ -81,14 +81,14 @@ def create_new_model(model_name, collection):
     model = collection.models.new(model_name)
     model['css'] = styles.model_css_class
     for field in fields:
-        collection.models.addField(model, collection.models.newField(field))
+        collection.models.addField(model, collection.models.new_field(field))
     template = create_templates(collection)
     collection.models.addTemplate(model, template)
     return model
 
 
 def create_templates(collection):
-    template = collection.models.newTemplate('spell -> detail')
+    template = collection.models.new_template('spell -> detail')
     template['qfmt'] = styles.question
     template['afmt'] = styles.answer
     return template

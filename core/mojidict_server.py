@@ -2,6 +2,7 @@
 # -*- coding: UTF-8 -*-
 # Created by yu.qi on 2021/03/16.
 # Mail:qiyu.one@gmail.com
+import logging
 import time
 from dataclasses import dataclass
 from typing import Iterable
@@ -51,13 +52,14 @@ class MojiServer:
             time.sleep(1)
 
     def fetch_from_server(self, dir_id, page_index):
+        logging.info(f'请求单词列表, dir_id:{dir_id}, page_index:{page_index}')
         r = requests.post(URL_COLLECTION, json={
             "fid": dir_id, "pageIndex": page_index, "count": 30, "sortType": 0,
             "_SessionToken": self.session_token,
             "_ApplicationId": APPLICATION_ID,
             "_InstallationId": INSTALLATION_ID,
             "_ClientVersion": CLIENT_VERSION
-        }, headers=headers)
+        }, headers=headers, timeout=(5, 5))
         data = (r.json())
         rows = utils.get(data, 'result.result')
         mojiwords = []
@@ -85,7 +87,7 @@ class MojiServer:
             "_ApplicationId": APPLICATION_ID,
             "_InstallationId": INSTALLATION_ID,
             "_ClientVersion": CLIENT_VERSION
-        }, headers=headers)
+        }, headers=headers, timeout=(5, 5))
         if r.status_code != 200:
             raise Exception(f'获取单词发音异常, {word.target_id}')
         return utils.get(r.json(), 'result.result.url')
@@ -101,7 +103,7 @@ class MojiServer:
             "_ApplicationId": APPLICATION_ID,
             "_InstallationId": INSTALLATION_ID,
             "_ClientVersion": CLIENT_VERSION
-        }, headers=headers)
+        }, headers=headers, timeout=(5, 5))
         self.session_token = utils.get(r.json(), 'sessionToken')
         if not self.session_token:
             raise Exception('登录失败')

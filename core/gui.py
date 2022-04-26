@@ -3,7 +3,6 @@
 # Created by yu.qi on 2021/06/25.
 # Mail:qiyu.one@gmail.com
 import json
-import logging
 
 from PyQt5 import QtGui
 from PyQt5.QtCore import QThreadPool, pyqtSignal, pyqtSlot, QRunnable
@@ -69,7 +68,6 @@ class ImportWindow(QDialog):
 
     def __init__(self, moji_server, parent=None):
         QDialog.__init__(self, parent)
-        common.interrupted = False
         self.moji_server: MojiServer = moji_server
         self.import_button = QPushButton('导入')
         self.model_name_field = QLineEdit()
@@ -78,6 +76,7 @@ class ImportWindow(QDialog):
         self.log_text = QPlainTextEdit()
         self.thread_pool = QThreadPool(self)
         self.thread_pool.setMaxThreadCount(1)
+        self.word_loader=None
         self.busy_signal.connect(self.change_busy)
         self.log_signal.connect(self.add_log)
         self.init_window()
@@ -122,14 +121,16 @@ class ImportWindow(QDialog):
         dir_id = self.dir_id_field.text().strip()
         utils.update_config({'model_name': model_name, 'deck_name': deck_name})
         if model_name and deck_name:
-            self.thread_pool.start(WordLoader(self.moji_server, self.busy_signal, self.log_signal,
-                                              model_name, deck_name, dir_id))
+            self.word_loader = WordLoader(self.moji_server, self.busy_signal, self.log_signal,
+                                          model_name, deck_name, dir_id)
+            self.thread_pool.start(self.word_loader)
         else:
             QMessageBox.critical(self, '', 'Deck名称和Note名称必填')
 
     def closeEvent(self, a0: QtGui.QCloseEvent) -> None:
         common_log('关闭导入窗口')
-        common.interrupted = True
+        if self.word_loader:
+            self.word_loader.interrupt()
         self.thread_pool.waitForDone()
 
 
@@ -142,6 +143,7 @@ class WordLoader(QRunnable):
         self.model_name = model_name
         self.deck_name = deck_name
         self.dir_id = dir_id
+        self.interrupted = False
 
     def run(self) -> None:
         self.busy_signal.emit(True)
@@ -149,6 +151,9 @@ class WordLoader(QRunnable):
             self.save_words()
         finally:
             self.busy_signal.emit(False)
+
+    def interrupt(self):
+        self.interrupted = True
 
     def save_words(self):
         if common.no_anki_mode:
@@ -163,18 +168,18 @@ class WordLoader(QRunnable):
         imported_count = 0
         skipped_count = 0
         for r in self.moji_server.fetch_all_from_server(self.dir_id):
-            if common.interrupted:
+            if self.interrupted:
                 common_log('导入单词终止')
-                common.interrupted = False
+                self.interrupted = False
                 return
 
             if common.no_anki_mode:
-                logging.debug(f'获取到单词{r.title}')
+                common_log(f'获取到单词{r.title}')
             else:
                 try:
                     note_dupes = mw.col.find_notes(f'deck:{self.deck_name} and target_id:{r.target_id}')
                 except Exception:
-                    print('查询单词异常:' + json.dumps(r.__dict__, ensure_ascii=False))
+                    common_log('查询单词异常:' + json.dumps(r.__dict__, ensure_ascii=False))
                     raise
                 if note_dupes:
                     skipped_count += 1
@@ -184,7 +189,7 @@ class WordLoader(QRunnable):
             storage.save_tts_file(r.target_id, self.moji_server.get_tts_url(r))
 
             if common.no_anki_mode:
-                logging.debug(f"虚拟保存note")
+                common_log(f"虚拟保存note")
             else:
                 note = notes.Note(mw.col, model)
                 note['target_id'] = r.target_id
@@ -199,7 +204,7 @@ class WordLoader(QRunnable):
                 try:
                     mw.col.addNote(note)
                 except Exception:
-                    print('添加单词异常:' + json.dumps(r.__dict__, ensure_ascii=False))
+                    common_log('添加单词异常:' + json.dumps(r.__dict__, ensure_ascii=False))
                     raise
             imported_count += 1
             self.log_signal.emit(f'增加单词:{r.target_id} {r.title}')

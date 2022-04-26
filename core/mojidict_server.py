@@ -2,7 +2,6 @@
 # -*- coding: UTF-8 -*-
 # Created by yu.qi on 2021/03/16.
 # Mail:qiyu.one@gmail.com
-import logging
 import time
 from dataclasses import dataclass
 from typing import Iterable
@@ -10,7 +9,7 @@ from typing import Iterable
 import requests
 
 from . import utils
-from .common import retry
+from .common import retry, common_log
 
 URL_COLLECTION = 'https://api.mojidict.com/parse/functions/folder-fetchContentWithRelatives'
 URL_TTS = 'https://api.mojidict.com/parse/functions/fetchTts_v2'
@@ -52,7 +51,7 @@ class MojiServer:
             time.sleep(1)
 
     def fetch_from_server(self, dir_id, page_index):
-        logging.info(f'请求单词列表, dir_id:{dir_id}, page_index:{page_index}')
+        common_log(f'请求单词列表, dir_id:{dir_id}, page_index:{page_index}')
         r = requests.post(URL_COLLECTION, json={
             "fid": dir_id, "pageIndex": page_index, "count": 30, "sortType": 0,
             "_SessionToken": self.session_token,

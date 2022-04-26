@@ -1,5 +1,4 @@
 import datetime
-import logging
 import time
 
 no_anki_mode = False
@@ -17,10 +16,10 @@ def retry(times=1, interval=1):
                 except Exception as e:
                     if actual_times <= times:
                         actual_times += 1
-                        logging.debug(f'出现异常, {interval}秒后第{actual_times}次重试')
+                        common_log(f'出现异常, {interval}秒后第{actual_times}次重试')
                         time.sleep(interval)
                     else:
-                        logging.debug(f'重试{times}次后依然失败, 放弃重试')
+                        common_log(f'重试{times}次后依然失败, 放弃重试')
                         raise e
 
         return target

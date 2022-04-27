@@ -68,7 +68,8 @@ def prepare_model(model_name, deck_name, collection):
 
 
 def is_model_exist(model_name, collection, fields):
-    name_exist = model_name in collection.models.all_names_and_ids()
+    all_names = [x.name for x in collection.models.all_names_and_ids()]
+    name_exist = model_name in all_names
     return name_exist
 
 

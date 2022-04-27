@@ -4,24 +4,26 @@
 # Mail:qiyu.one@gmail.com
 import os
 
-import requests
-
-
 from . import common
 from .common import common_log
 
 
-def save_tts_file(target_id, url):
+def save_tts_file(file_path, content):
+    common_log('保存文件 path:' + file_path)
+    with open(file_path, 'wb') as f:
+        f.write(content)
+    return file_path
+
+
+def has_file(file_path):
+    return os.path.lexists(file_path)
+
+
+def get_file_path(target_id):
     if common.no_anki_mode:
-        common_log(f'虚拟保存文件, target_id={target_id}, url={url}')
-        return
+        return '/tmp/moji_' + target_id + '.mp3'
+
     from aqt import mw
     destination_folder = mw.col.media.dir()
     file_path = os.path.join(destination_folder, 'moji_' + target_id + '.mp3')
-    if os.path.lexists(file_path):
-        return file_path
-    res = requests.get(url)
-    common_log('保存文件 path:' + file_path)
-    with open(file_path, 'wb') as f:
-        f.write(res.content)
     return file_path

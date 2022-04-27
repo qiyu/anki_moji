@@ -76,7 +76,7 @@ class ImportWindow(QDialog):
         self.log_text = QPlainTextEdit()
         self.thread_pool = QThreadPool(self)
         self.thread_pool.setMaxThreadCount(1)
-        self.word_loader=None
+        self.word_loader = None
         self.busy_signal.connect(self.change_busy)
         self.log_signal.connect(self.add_log)
         self.init_window()
@@ -167,6 +167,7 @@ class WordLoader(QRunnable):
 
         imported_count = 0
         skipped_count = 0
+
         for r in self.moji_server.fetch_all_from_server(self.dir_id):
             if self.interrupted:
                 common_log('导入单词终止')
@@ -186,7 +187,15 @@ class WordLoader(QRunnable):
                     self.log_signal.emit(f'跳过重复单词:{r.target_id} {r.title}')
                     continue
 
-            storage.save_tts_file(r.target_id, self.moji_server.get_tts_url(r))
+            file_path = storage.get_file_path(r.target_id)
+            if not storage.has_file(file_path):
+                try:
+                    content = self.moji_server.get_tts_url_and_download(r)
+                except Exception:
+                    common_log(f'获取发音文件异常:{r.target_id} {r.title}')
+                    self.log_signal.emit(f'获取发音文件异常:{r.target_id} {r.title}')
+                    raise
+                storage.save_tts_file(file_path, content)
 
             if common.no_anki_mode:
                 common_log(f"虚拟保存note")

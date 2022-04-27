@@ -2,6 +2,7 @@
 # -*- coding: UTF-8 -*-
 # Created by yu.qi on 2021/03/16.
 # Mail:qiyu.one@gmail.com
+import datetime
 import time
 from dataclasses import dataclass
 from typing import Iterable
@@ -37,21 +38,11 @@ class MojiWord:
 class MojiServer:
     def __init__(self):
         self.session_token = None
+        self.last_request = None
 
-    def fetch_all_from_server(self, dir_id) -> Iterable[MojiWord]:
-        self.ensure_login()
-        page_index = 1
-        while True:
-            mojiwords = self.fetch_from_server(dir_id, page_index)
-            for mojiword in mojiwords:
-                yield mojiword
-            page_index += 1
-            if not mojiwords:
-                break
-            time.sleep(1)
-
+    @retry(times=3)
     def fetch_from_server(self, dir_id, page_index):
-        common_log(f'请求单词列表, dir_id:{dir_id}, page_index:{page_index}')
+        self.pre_request()
         r = requests.post(URL_COLLECTION, json={
             "fid": dir_id, "pageIndex": page_index, "count": 30, "sortType": 0,
             "_SessionToken": self.session_token,
@@ -59,6 +50,9 @@ class MojiServer:
             "_InstallationId": INSTALLATION_ID,
             "_ClientVersion": CLIENT_VERSION
         }, headers=headers, timeout=(5, 5))
+        self.post_request()
+        if r.status_code != 200:
+            raise Exception(f'获取单词列表异常, {dir_id}, {page_index}')
         data = (r.json())
         rows = utils.get(data, 'result.result')
         mojiwords = []
@@ -79,6 +73,7 @@ class MojiServer:
     @retry(times=3)
     def get_tts_url(self, word: MojiWord):
         self.ensure_login()
+        self.pre_request()
         r = requests.post(URL_TTS, json={
             'tarId': word.target_id,
             'tarType': word.target_type,
@@ -87,15 +82,26 @@ class MojiServer:
             "_InstallationId": INSTALLATION_ID,
             "_ClientVersion": CLIENT_VERSION
         }, headers=headers, timeout=(5, 5))
+        self.post_request()
         if r.status_code != 200:
-            raise Exception(f'获取单词发音异常, {word.target_id}')
+            raise Exception(f'获取单词发音文件地址异常, {word.target_id}')
         return utils.get(r.json(), 'result.result.url')
+
+    @retry(times=3)
+    def get_file(self, url):
+        self.pre_request()
+        res = requests.get(url, timeout=(5, 5))
+        self.post_request()
+        if res.status_code != 200:
+            raise Exception(f'获取单词发音文件异常, {url}')
+        return res.content
 
     def ensure_login(self):
         if not self.session_token:
             raise Exception('未登录')
 
     def login(self, username, password):
+        self.pre_request()
         r = requests.post(URL_LOGIN, json={
             'username': username,
             'password': password,
@@ -103,6 +109,29 @@ class MojiServer:
             "_InstallationId": INSTALLATION_ID,
             "_ClientVersion": CLIENT_VERSION
         }, headers=headers, timeout=(5, 5))
+        self.post_request()
         self.session_token = utils.get(r.json(), 'sessionToken')
         if not self.session_token:
             raise Exception('登录失败')
+
+    def pre_request(self):
+        if self.last_request is not None and datetime.datetime.now().timestamp() - self.last_request < 0.6:
+            time.sleep(1)
+
+    def post_request(self):
+        self.last_request = datetime.datetime.now().timestamp()
+
+    def get_tts_url_and_download(self, word: MojiWord):
+        url = self.get_tts_url(word)
+        return self.get_file(url)
+
+    def fetch_all_from_server(self, dir_id) -> Iterable[MojiWord]:
+        self.ensure_login()
+        page_index = 1
+        while True:
+            mojiwords = self.fetch_from_server(dir_id, page_index)
+            for mojiword in mojiwords:
+                yield mojiword
+            page_index += 1
+            if not mojiwords:
+                break

@@ -69,12 +69,7 @@ def prepare_model(model_name, deck_name, collection):
 
 def is_model_exist(model_name, collection, fields):
     name_exist = model_name in collection.models.all_names_and_ids()
-    if name_exist:
-        fields_ok = collection.models.field_names(collection.models.by_name(
-            model_name)) == fields
-    else:
-        fields_ok = False
-    return name_exist and fields_ok
+    return name_exist
 
 
 def create_new_model(model_name, collection):

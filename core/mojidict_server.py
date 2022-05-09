@@ -13,7 +13,7 @@ from . import utils
 from .common import retry, common_log
 
 URL_COLLECTION = 'https://api.mojidict.com/parse/functions/folder-fetchContentWithRelatives'
-URL_TTS = 'https://api.mojidict.com/parse/functions/fetchTts_v2'
+URL_TTS = 'https://api.mojidict.com/parse/functions/tts-fetch'
 URL_LOGIN = 'https://api.mojidict.com/parse/login'
 
 CLIENT_VERSION = 'js3.4.1'
@@ -56,6 +56,10 @@ class MojiServer:
         data = (r.json())
         rows = utils.get(data, 'result.result')
         mojiwords = []
+        if not rows:
+            common_log('获取单词列表为空或单词列表不存在')
+            return mojiwords
+
         for row in rows:
             target = (utils.get(row, 'target'))
             if row['targetType'] != 102:
@@ -75,8 +79,10 @@ class MojiServer:
         self.ensure_login()
         self.pre_request()
         r = requests.post(URL_TTS, json={
+            'g_os':'PCWeb',
             'tarId': word.target_id,
             'tarType': word.target_type,
+            'voiceId': 'f000',
             "_SessionToken": self.session_token,
             "_ApplicationId": APPLICATION_ID,
             "_InstallationId": INSTALLATION_ID,

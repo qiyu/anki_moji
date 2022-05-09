@@ -14,8 +14,8 @@ def retry(times=1, interval=1):
                 try:
                     return func(*args, **kwargs)
                 except Exception as e:
+                    actual_times += 1
                     if actual_times <= times:
-                        actual_times += 1
                         common_log(f'出现异常, {interval}秒后第{actual_times}次重试')
                         time.sleep(interval)
                     else:

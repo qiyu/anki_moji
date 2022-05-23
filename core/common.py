@@ -2,7 +2,6 @@ import datetime
 import time
 
 no_anki_mode = False
-interrupted = False
 
 
 def retry(times=1, interval=1):

@@ -13,7 +13,7 @@ from aqt import mw
 
 from . import utils, storage, common
 from .common import common_log
-from .mojidict_server import MojiServer
+from .mojidict_server import MojiServer, MojiWord
 
 
 class MainWindow(QDialog):
@@ -173,6 +173,9 @@ class WordLoader(QRunnable):
                 common_log('导入单词终止')
                 self.interrupted = False
                 return
+
+            if not isinstance(r, MojiWord):
+                continue
 
             if common.no_anki_mode:
                 common_log(f'获取到单词{r.title}')

@@ -35,6 +35,13 @@ class MojiWord:
     pron: str
 
 
+@dataclass
+class MojiFolder:
+    title: str
+    target_id: str
+    target_type: str
+
+
 class MojiServer:
     def __init__(self):
         self.session_token = None
@@ -57,21 +64,25 @@ class MojiServer:
         rows = utils.get(data, 'result.result')
         mojiwords = []
         if not rows:
-            common_log('获取单词列表为空或单词列表不存在')
+            common_log(f'获取单词列表为空或单词列表不存在，dir_id：{dir_id}，page_index：{page_index}')
             return mojiwords
 
         for row in rows:
             target = (utils.get(row, 'target'))
-            if row['targetType'] != 102:
-                continue
-            word = MojiWord(row['title'],
-                            row['targetId'],
-                            row['targetType'],
-                            utils.get(target, 'excerpt') or '',
-                            utils.get(target, 'spell') or '',
-                            utils.get(target, 'accent') or '',
-                            utils.get(target, 'pron') or '')
-            mojiwords.append(word)
+            if row['targetType'] == 102:
+                mojiwords.append(
+                    MojiWord(row['title'],
+                             row['targetId'],
+                             row['targetType'],
+                             utils.get(target, 'excerpt') or '',
+                             utils.get(target, 'spell') or '',
+                             utils.get(target, 'accent') or '',
+                             utils.get(target, 'pron') or ''))
+            elif row['targetType'] == 1000:
+                mojiwords.append(
+                    MojiFolder(row['title'],
+                               row['targetId'],
+                               row['targetType']))
         return mojiwords
 
     @retry(times=3)
@@ -119,6 +130,7 @@ class MojiServer:
         self.session_token = utils.get(r.json(), 'sessionToken')
         if not self.session_token:
             raise Exception('登录失败')
+
 
     def pre_request(self):
         if self.last_request is not None and datetime.datetime.now().timestamp() - self.last_request < 0.6:

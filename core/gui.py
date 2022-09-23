@@ -3,6 +3,8 @@
 # Created by yu.qi on 2021/06/25.
 # Mail:qiyu.one@gmail.com
 import json
+import typing
+from collections import deque
 
 from PyQt5 import QtGui
 from PyQt5.QtCore import QThreadPool, pyqtSignal, pyqtSlot, QRunnable
@@ -13,7 +15,7 @@ from aqt import mw
 
 from . import utils, storage, common
 from .common import common_log
-from .mojidict_server import MojiServer, MojiWord
+from .mojidict_server import MojiServer, MojiWord, MojiFolder
 
 
 class MainWindow(QDialog):
@@ -157,67 +159,85 @@ class WordLoader(QRunnable):
 
     def save_words(self):
         if common.no_anki_mode:
-            notes = None
             model = None
         else:
-            from anki import notes
             model = utils.prepare_model(self.model_name, self.deck_name, mw.col)
 
         self.log_signal.emit('')
 
-        imported_count = 0
-        skipped_count = 0
+        total_imported_count = 0
+        total_skipped_count = 0
 
-        for r in self.moji_server.fetch_all_from_server(self.dir_id):
-            if self.interrupted:
-                common_log('导入单词终止')
-                self.interrupted = False
-                return
+        moji_folders: typing.Deque[MojiFolder] = deque()
+        current_folder = None
+        dir_id = self.dir_id
 
-            if not isinstance(r, MojiWord):
-                continue
+        while True:
+            if current_folder is None or current_folder.parent is None:
+                if current_folder:
+                    self.log_signal.emit('开始处理目录：' + current_folder.title)
+                    dir_id = current_folder.target_id
 
-            if common.no_anki_mode:
-                common_log(f'获取到单词{r.title}')
-            else:
-                try:
-                    note_dupes = mw.col.find_notes(f'deck:{self.deck_name} and target_id:{r.target_id}')
-                except Exception:
-                    common_log('查询单词异常:' + json.dumps(r.__dict__, ensure_ascii=False))
-                    raise
-                if note_dupes:
-                    skipped_count += 1
-                    self.log_signal.emit(f'跳过重复单词:{r.target_id} {r.title}')
-                    continue
+                for r in self.moji_server.fetch_all_from_server(dir_id, current_folder):
+                    if self.interrupted:
+                        common_log('导入单词终止')
+                        self.interrupted = False
+                        return
 
-            file_path = storage.get_file_path(r.target_id)
-            if not storage.has_file(file_path):
-                try:
-                    content = self.moji_server.get_tts_url_and_download(r)
-                except Exception:
-                    common_log(f'获取发音文件异常:{r.target_id} {r.title}')
-                    self.log_signal.emit(f'获取发音文件异常:{r.target_id} {r.title}')
-                    raise
-                storage.save_tts_file(file_path, content)
+                    if isinstance(r, MojiWord):
+                        imported_count, skipped_count = self.process_word(r, model)
+                        total_imported_count += imported_count
+                        total_skipped_count += skipped_count
+                    else:
+                        moji_folders.append(r)
 
-            if common.no_anki_mode:
-                common_log(f"虚拟保存note")
-            else:
-                note = notes.Note(mw.col, model)
-                note['target_id'] = r.target_id
-                note['target_type'] = str(r.target_type)
-                note['sound'] = f'[sound:moji_{r.target_id}.mp3]'
-                note['link'] = f'<a href="https://www.mojidict.com/details/{r.target_id}">Moji Web</a>'
-                note['spell'] = r.spell
-                note['pron'] = r.pron
-                note['excerpt'] = r.excerpt
-                note['accent'] = r.accent
-                note['title'] = r.title
-                try:
-                    mw.col.addNote(note)
-                except Exception:
-                    common_log('添加单词异常:' + json.dumps(r.__dict__, ensure_ascii=False))
-                    raise
-            imported_count += 1
-            self.log_signal.emit(f'增加单词:{r.target_id} {r.title}')
-        self.log_signal.emit(f'执行结束,共增加{imported_count}个单词,跳过{skipped_count}个单词')
+            if not moji_folders:
+                break
+            current_folder = moji_folders.popleft()
+
+        self.log_signal.emit(f'执行结束,共增加{total_imported_count}个单词,跳过{total_skipped_count}个单词')
+
+    def process_word(self, r: MojiWord, model) -> typing.Tuple[int, int]:
+        if common.no_anki_mode:
+            common_log(f'获取到单词{r.title}')
+        else:
+            try:
+                note_dupes = mw.col.find_notes(f'deck:{self.deck_name} and target_id:{r.target_id}')
+            except Exception:
+                common_log('查询单词异常:' + json.dumps(r.__dict__, ensure_ascii=False))
+                raise
+            if note_dupes:
+                self.log_signal.emit(f'跳过重复单词:{r.target_id} {r.title}')
+                return 0, 1
+
+        file_path = storage.get_file_path(r.target_id)
+        if not storage.has_file(file_path):
+            try:
+                content = self.moji_server.get_tts_url_and_download(r)
+            except Exception:
+                common_log(f'获取发音文件异常:{r.target_id} {r.title}')
+                self.log_signal.emit(f'获取发音文件异常:{r.target_id} {r.title}')
+                raise
+            storage.save_tts_file(file_path, content)
+
+        if common.no_anki_mode:
+            common_log(f"虚拟保存note")
+        else:
+            from anki import notes
+            note = notes.Note(mw.col, model)
+            note['target_id'] = r.target_id
+            note['target_type'] = str(r.target_type)
+            note['sound'] = f'[sound:moji_{r.target_id}.mp3]'
+            note['link'] = f'<a href="https://www.mojidict.com/details/{r.target_id}">Moji Web</a>'
+            note['spell'] = r.spell
+            note['pron'] = r.pron
+            note['excerpt'] = r.excerpt
+            note['accent'] = r.accent
+            note['title'] = r.title
+            try:
+                mw.col.addNote(note)
+            except Exception:
+                common_log('添加单词异常:' + json.dumps(r.__dict__, ensure_ascii=False))
+                raise
+        self.log_signal.emit(f'增加单词:{r.target_id} {r.title}')
+        return 1, 0

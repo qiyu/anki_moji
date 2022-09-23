@@ -2,11 +2,12 @@
 # -*- coding: UTF-8 -*-
 # Created by yu.qi on 2021/03/16.
 # Mail:qiyu.one@gmail.com
+from __future__ import annotations
+
 import datetime
 import time
 from dataclasses import dataclass
-from typing import Iterable
-
+from typing import Iterable, Any, Union, Optional
 import requests
 
 from . import utils
@@ -31,8 +32,8 @@ class MojiWord:
     excerpt: str
     spell: str
     accent: str
-
     pron: str
+    parent: Optional[MojiFolder]
 
 
 @dataclass
@@ -40,6 +41,7 @@ class MojiFolder:
     title: str
     target_id: str
     target_type: str
+    parent: Optional[MojiFolder]
 
 
 class MojiServer:
@@ -48,7 +50,7 @@ class MojiServer:
         self.last_request = None
 
     @retry(times=3)
-    def fetch_from_server(self, dir_id, page_index):
+    def fetch_from_server(self, dir_id, page_index, moji_folder: Optional[MojiFolder] = None):
         self.pre_request()
         r = requests.post(URL_COLLECTION, json={
             "fid": dir_id, "pageIndex": page_index, "count": 30, "sortType": 0,
@@ -62,10 +64,11 @@ class MojiServer:
             raise Exception(f'获取单词列表异常, {dir_id}, {page_index}')
         data = (r.json())
         rows = utils.get(data, 'result.result')
+        total_page = utils.get(data, 'result.totalPage') or 0
         mojiwords = []
         if not rows:
             common_log(f'获取单词列表为空或单词列表不存在，dir_id：{dir_id}，page_index：{page_index}')
-            return mojiwords
+            return total_page, mojiwords
 
         for row in rows:
             target = (utils.get(row, 'target'))
@@ -77,20 +80,22 @@ class MojiServer:
                              utils.get(target, 'excerpt') or '',
                              utils.get(target, 'spell') or '',
                              utils.get(target, 'accent') or '',
-                             utils.get(target, 'pron') or ''))
+                             utils.get(target, 'pron') or '',
+                             moji_folder))
             elif row['targetType'] == 1000:
                 mojiwords.append(
                     MojiFolder(row['title'],
                                row['targetId'],
-                               row['targetType']))
-        return mojiwords
+                               row['targetType'],
+                               moji_folder))
+        return total_page, mojiwords
 
     @retry(times=3)
     def get_tts_url(self, word: MojiWord):
         self.ensure_login()
         self.pre_request()
         r = requests.post(URL_TTS, json={
-            'g_os':'PCWeb',
+            'g_os': 'PCWeb',
             'tarId': word.target_id,
             'tarType': word.target_type,
             'voiceId': 'f000',
@@ -131,7 +136,6 @@ class MojiServer:
         if not self.session_token:
             raise Exception('登录失败')
 
-
     def pre_request(self):
         if self.last_request is not None and datetime.datetime.now().timestamp() - self.last_request < 0.6:
             time.sleep(1)
@@ -143,13 +147,13 @@ class MojiServer:
         url = self.get_tts_url(word)
         return self.get_file(url)
 
-    def fetch_all_from_server(self, dir_id) -> Iterable[MojiWord]:
+    def fetch_all_from_server(self, dir_id: str, moji_folder: Optional[MojiFolder] = None) -> Iterable[MojiWord]:
         self.ensure_login()
         page_index = 1
         while True:
-            mojiwords = self.fetch_from_server(dir_id, page_index)
+            total_page, mojiwords = self.fetch_from_server(dir_id, page_index, moji_folder)
             for mojiword in mojiwords:
                 yield mojiword
             page_index += 1
-            if not mojiwords:
+            if not mojiwords or page_index > total_page:
                 break

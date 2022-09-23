@@ -27,6 +27,8 @@ def update_config(config: dict):
 
 
 def get(obj: dict, path: str):
+    if obj is None:
+        return None
     field_names = path.split('.')
     current = obj
     for field_name in field_names:

@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import datetime
+import json
 import time
 from dataclasses import dataclass
 from typing import Iterable, Any, Union, Optional
@@ -71,23 +72,28 @@ class MojiServer:
             return total_page, mojiwords
 
         for row in rows:
-            target = (utils.get(row, 'target'))
-            if row['targetType'] == 102:
-                mojiwords.append(
-                    MojiWord(row['title'],
-                             row['targetId'],
-                             row['targetType'],
-                             utils.get(target, 'excerpt') or '',
-                             utils.get(target, 'spell') or '',
-                             utils.get(target, 'accent') or '',
-                             utils.get(target, 'pron') or '',
-                             moji_folder))
-            elif row['targetType'] == 1000:
-                mojiwords.append(
-                    MojiFolder(row['title'],
-                               row['targetId'],
-                               row['targetType'],
-                               moji_folder))
+            try:
+                target = (utils.get(row, 'target'))
+                if row['targetType'] == 102:
+                    mojiwords.append(
+                        MojiWord(row['title'],
+                                 row['targetId'],
+                                 row['targetType'],
+                                 utils.get(target, 'excerpt') or '',
+                                 utils.get(target, 'spell') or '',
+                                 utils.get(target, 'accent') or '',
+                                 utils.get(target, 'pron') or '',
+                                 moji_folder))
+                elif row['targetType'] == 1000:
+                    mojiwords.append(
+                        MojiFolder(row['title'],
+                                   row['targetId'],
+                                   row['targetType'],
+                                   moji_folder))
+            except Exception as e:
+                common_log('处理数据出错：' + json.dumps(row, ensure_ascii=False))
+                raise e
+
         return total_page, mojiwords
 
     @retry(times=3)

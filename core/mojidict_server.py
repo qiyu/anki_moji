@@ -73,8 +73,10 @@ class MojiServer:
 
         for row in rows:
             try:
-                target = (utils.get(row, 'target'))
                 if row['targetType'] == 102:
+                    target = utils.get(row, 'target')
+                    if target is None:
+                        continue
                     mojiwords.append(
                         MojiWord(row['title'],
                                  row['targetId'],

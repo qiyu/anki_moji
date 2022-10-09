@@ -61,8 +61,8 @@ class MojiServer:
             return mojiwords
 
         for row in rows:
-            target = (utils.get(row, 'target'))
-            if row['targetType'] != 102:
+            target = utils.get(row, 'target')
+            if row['targetType'] != 102 or target is None:
                 continue
             word = MojiWord(row['title'],
                             row['targetId'],
@@ -79,7 +79,7 @@ class MojiServer:
         self.ensure_login()
         self.pre_request()
         r = requests.post(URL_TTS, json={
-            'g_os':'PCWeb',
+            'g_os': 'PCWeb',
             'tarId': word.target_id,
             'tarType': word.target_type,
             'voiceId': 'f000',

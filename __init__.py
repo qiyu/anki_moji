@@ -8,7 +8,7 @@ from .core.gui import MainWindow
 
 def activate():
     window = MainWindow()
-    window.exec_()
+    window.exec()
 
 action = QAction('从Moji导入-dev', mw)
 action.triggered.connect(activate)

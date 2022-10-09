@@ -34,7 +34,7 @@ class MainWindow(QDialog):
         self.setWindowTitle('从Moji导入')
         login_label = QLabel('用户:')
         pass_label = QLabel('密码:')
-        self.pass_field.setEchoMode(QLineEdit.Password)
+        self.pass_field.setEchoMode(QLineEdit.EchoMode.Password)
         self.login_button.clicked.connect(self.login_button_clicked)
         config = utils.get_config()
         self.login_field.setText(config.get('username', ''))

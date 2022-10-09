@@ -4,3 +4,4 @@ venv
 /meta.json
 /config.json
 /*.ankiaddon
+__pycache__

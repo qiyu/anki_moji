@@ -178,7 +178,7 @@ class WordLoader(QRunnable):
                 common_log(f'获取到单词{r.title}')
             else:
                 try:
-                    note_dupes = mw.col.find_notes(f'deck:{self.deck_name} and target_id:{r.target_id}')
+                    note_dupes = mw.col.find_notes(f'deck:"{self.deck_name}" and target_id:{r.target_id}')
                 except Exception:
                     common_log('查询单词异常:' + json.dumps(r.__dict__, ensure_ascii=False))
                     raise

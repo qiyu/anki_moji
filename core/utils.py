@@ -1,8 +1,6 @@
 import json
 import os
 
-from aqt import mw
-
 from . import styles
 
 
@@ -43,8 +41,14 @@ def get_module_name():
 
 
 def get_addon_dir():
+    try:
+        from aqt import mw
+    except ModuleNotFoundError:
+        return os.getcwd()
+
     if mw is None:
         return os.getcwd()
+
     root = mw.pm.addonFolder()
     addon_dir = os.path.join(root, get_module_name())
     return addon_dir

@@ -9,9 +9,7 @@ from collections import deque
 from PyQt5 import QtGui
 from PyQt5.QtCore import QThreadPool, pyqtSignal, pyqtSlot, QRunnable
 from PyQt5.QtWidgets import QDialog, QLabel, QLineEdit, QPushButton, QFormLayout, QVBoxLayout, QHBoxLayout, \
-    QPlainTextEdit, QMessageBox
-
-from aqt import mw
+    QPlainTextEdit, QMessageBox, QCheckBox
 
 from . import utils, storage, common
 from .common import common_log
@@ -71,11 +69,14 @@ class ImportWindow(QDialog):
     def __init__(self, moji_server, parent=None):
         QDialog.__init__(self, parent)
         self.moji_server: MojiServer = moji_server
+
         self.import_button = QPushButton('导入')
         self.model_name_field = QLineEdit()
         self.deck_name_field = QLineEdit()
         self.dir_id_field = QLineEdit()
         self.log_text = QPlainTextEdit()
+        self.recursion_check_box = QCheckBox()
+
         self.thread_pool = QThreadPool(self)
         self.thread_pool.setMaxThreadCount(1)
         self.word_loader = None
@@ -89,9 +90,12 @@ class ImportWindow(QDialog):
         self.log_text.setReadOnly(True)
         self.log_text.setMinimumWidth(400)
         self.import_button.clicked.connect(self.import_button_clicked)
-        model_name_label = QLabel('Note名称:')
-        deck_name_label = QLabel('Deck名称:')
+
+        model_name_label = QLabel('笔记模板名称（Note）:')
+        deck_name_label = QLabel('牌组名称（Deck）:')
         dir_id_label = QLabel('目录ID:')
+        recursion_label = QLabel('同时导入子目录:')
+
         config = utils.get_config()
         self.model_name_field.setText(config.get('model_name') or 'Moji')
         self.deck_name_field.setText(config.get('deck_name') or 'Moji')
@@ -100,6 +104,8 @@ class ImportWindow(QDialog):
         import_form.addRow(model_name_label, self.model_name_field)
         import_form.addRow(deck_name_label, self.deck_name_field)
         import_form.addRow(dir_id_label, self.dir_id_field)
+        import_form.addRow(recursion_label, self.recursion_check_box)
+
         main_layout = QVBoxLayout()
         main_layout.addLayout(import_form)
         main_layout.addWidget(self.import_button)
@@ -128,7 +134,7 @@ class ImportWindow(QDialog):
         utils.update_config({'model_name': model_name, 'deck_name': deck_name})
         if model_name and deck_name:
             self.word_loader = WordLoader(self.moji_server, self.busy_signal, self.log_signal,
-                                          model_name, deck_name, dir_id)
+                                          model_name, deck_name, dir_id, self.recursion_check_box.isChecked())
             self.thread_pool.start(self.word_loader)
         else:
             QMessageBox.critical(self, '', 'Deck名称和Note名称必填')
@@ -141,7 +147,7 @@ class ImportWindow(QDialog):
 
 
 class WordLoader(QRunnable):
-    def __init__(self, moji_server, busy_signal, log_signal, model_name, deck_name, dir_id):
+    def __init__(self, moji_server, busy_signal, log_signal, model_name, deck_name, dir_id, recursion):
         super().__init__()
         self.moji_server = moji_server
         self.busy_signal = busy_signal
@@ -150,6 +156,7 @@ class WordLoader(QRunnable):
         self.deck_name = deck_name
         self.dir_id = dir_id
         self.interrupted = False
+        self.recursion = recursion
 
     def run(self) -> None:
         self.busy_signal.emit(True)
@@ -165,6 +172,7 @@ class WordLoader(QRunnable):
         if common.no_anki_mode:
             model = None
         else:
+            from aqt import mw
             model = utils.prepare_model(self.model_name, self.deck_name, mw.col)
 
         self.log_signal.emit('')
@@ -189,10 +197,11 @@ class WordLoader(QRunnable):
                         return
 
                     if isinstance(r, MojiWord):
-                        imported_count, skipped_count = self.process_word(r, model)
-                        total_imported_count += imported_count
-                        total_skipped_count += skipped_count
-                    else:
+                        if self.process_word(r, model):
+                            total_imported_count += 1
+                        else:
+                            total_skipped_count += 1
+                    elif self.recursion:
                         moji_folders.append(r)
 
             if not moji_folders:
@@ -201,18 +210,19 @@ class WordLoader(QRunnable):
 
         self.log_signal.emit(f'执行结束,共增加{total_imported_count}个单词,跳过{total_skipped_count}个单词')
 
-    def process_word(self, r: MojiWord, model) -> typing.Tuple[int, int]:
+    def process_word(self, r: MojiWord, model) -> bool:
         if common.no_anki_mode:
             common_log(f'获取到单词{r.title}')
         else:
             try:
+                from aqt import mw
                 note_dupes = mw.col.find_notes(f'deck:"{self.deck_name}" and target_id:{r.target_id}')
             except Exception:
                 common_log('查询单词异常:' + json.dumps(r.__dict__, ensure_ascii=False))
                 raise
             if note_dupes:
                 self.log_signal.emit(f'跳过重复单词:{r.target_id} {r.title}')
-                return 0, 1
+                return False
 
         file_path = storage.get_file_path(r.target_id)
         if not storage.has_file(file_path):
@@ -228,6 +238,7 @@ class WordLoader(QRunnable):
             common_log(f"虚拟保存note")
         else:
             from anki import notes
+            from aqt import mw
             note = notes.Note(mw.col, model)
             note['target_id'] = r.target_id
             note['target_type'] = str(r.target_type)
@@ -239,9 +250,10 @@ class WordLoader(QRunnable):
             note['accent'] = r.accent
             note['title'] = r.title
             try:
+                from aqt import mw
                 mw.col.addNote(note)
             except Exception:
                 common_log('添加单词异常:' + json.dumps(r.__dict__, ensure_ascii=False))
                 raise
         self.log_signal.emit(f'增加单词:{r.target_id} {r.title}')
-        return 1, 0
+        return True

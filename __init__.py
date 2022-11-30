@@ -10,6 +10,6 @@ def activate():
     window = MainWindow()
     window.exec()
 
-action = QAction('从Moji导入-dev', mw)
+action = QAction('从Moji导入', mw)
 action.triggered.connect(activate)
 mw.form.menuTools.addAction(action)

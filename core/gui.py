@@ -121,6 +121,10 @@ class ImportWindow(QDialog):
         model_name = self.model_name_field.text().strip()
         deck_name = self.deck_name_field.text().strip()
         dir_id = self.dir_id_field.text().strip()
+        if "\\" in deck_name or '"' in deck_name:
+            QMessageBox.critical(self, '', 'Deck名称中不能包含"和\\')
+            return
+
         utils.update_config({'model_name': model_name, 'deck_name': deck_name})
         if model_name and deck_name:
             self.word_loader = WordLoader(self.moji_server, self.busy_signal, self.log_signal,
@@ -202,7 +206,7 @@ class WordLoader(QRunnable):
             common_log(f'获取到单词{r.title}')
         else:
             try:
-                note_dupes = mw.col.find_notes(f'deck:{self.deck_name} and target_id:{r.target_id}')
+                note_dupes = mw.col.find_notes(f'deck:"{self.deck_name}" and target_id:{r.target_id}')
             except Exception:
                 common_log('查询单词异常:' + json.dumps(r.__dict__, ensure_ascii=False))
                 raise

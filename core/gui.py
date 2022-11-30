@@ -94,7 +94,7 @@ class ImportWindow(QDialog):
         model_name_label = QLabel('笔记模板名称（Note）:')
         deck_name_label = QLabel('牌组名称（Deck）:')
         dir_id_label = QLabel('目录ID:')
-        recursion_label = QLabel('同时导入子目录:')
+        recursion_label = QLabel('同时导入1级子目录:')
 
         config = utils.get_config()
         self.model_name_field.setText(config.get('model_name') or 'Moji')

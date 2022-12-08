@@ -1,5 +1,3 @@
-from multiprocessing.pool import ThreadPool
-
 from PyQt5.QtWidgets import QAction
 from aqt import mw
 

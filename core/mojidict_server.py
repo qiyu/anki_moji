@@ -163,5 +163,5 @@ class MojiServer:
             for mojiword in mojiwords:
                 yield mojiword
             page_index += 1
-            if not mojiwords or page_index > total_page:
+            if not mojiwords or (dir_id and page_index > total_page):
                 break

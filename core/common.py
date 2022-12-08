@@ -27,4 +27,4 @@ def retry(times=1, interval=1):
 
 
 def common_log(content):
-    print(datetime.datetime.now().strftime('%Y-%m-%e %H:%M:%S') + ' anki_moji ' + content)
+    print(datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S') + ' anki_moji ' + content)

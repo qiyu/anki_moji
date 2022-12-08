@@ -163,5 +163,6 @@ class MojiServer:
             for mojiword in mojiwords:
                 yield mojiword
             page_index += 1
+            # 当dir_id为空时total_page始终为0
             if not mojiwords or (dir_id and page_index > total_page):
                 break

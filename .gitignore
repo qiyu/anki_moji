@@ -5,3 +5,4 @@ venv
 /config.json
 /*.ankiaddon
 __pycache__
+*.iml

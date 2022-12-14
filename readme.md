@@ -17,18 +17,23 @@
 
 ### 效果图片
 正面1（假名+音调+读音）
+
 ![img_1.png](img_1.png)
 
 正面2（单词）
+
 ![img_2.png](img_2.png)
 
 正面3（词性+释义）
+
 ![img_3.png](img_3.png)
 
 背面
+
 ![img_4.png](img_4.png)
 
 背面点击释义可以折叠例句：
+
 ![img_5.png](img_5.png)
 
 原插件链接：https://ankiweb.net/shared/info/131403862

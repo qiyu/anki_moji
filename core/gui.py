@@ -99,7 +99,7 @@ class ImportWindow(QDialog):
         config = utils.get_config()
         self.model_name_field.setText(config.get('model_name') or 'Moji')
         self.deck_name_field.setText(config.get('deck_name') or 'Moji')
-        self.dir_id_field.setText('')
+        self.dir_id_field.setText(config.get('dir_id') or '')
         import_form = QFormLayout()
         import_form.addRow(model_name_label, self.model_name_field)
         import_form.addRow(deck_name_label, self.deck_name_field)
@@ -131,7 +131,7 @@ class ImportWindow(QDialog):
             QMessageBox.critical(self, '', 'Deck名称中不能包含"和\\')
             return
 
-        utils.update_config({'model_name': model_name, 'deck_name': deck_name})
+        utils.update_config({'model_name': model_name, 'deck_name': deck_name, 'dir_id': dir_id})
         if model_name and deck_name:
             self.word_loader = WordLoader(self.moji_server, self.busy_signal, self.log_signal,
                                           model_name, deck_name, dir_id, self.recursion_check_box.isChecked())
@@ -249,6 +249,10 @@ class WordLoader(QRunnable):
             note['excerpt'] = r.excerpt
             note['accent'] = r.accent
             note['title'] = r.title
+            detail = self.moji_server.get_detail(r.target_id)
+            note['part_of_speech'] = detail['part_of_speech']
+            note['trans'] = detail['trans']
+            note['examples'] = detail['examples']
             try:
                 from aqt import mw
                 mw.col.addNote(note)

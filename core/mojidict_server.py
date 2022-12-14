@@ -15,6 +15,7 @@ from . import utils
 from .common import retry, common_log
 
 URL_COLLECTION = 'https://api.mojidict.com/parse/functions/folder-fetchContentWithRelatives'
+URL_WORD_DETAIL = 'https://api.mojidict.com/parse/functions/nlt-fetchManyLatestWords'
 URL_TTS = 'https://api.mojidict.com/parse/functions/tts-fetch'
 URL_LOGIN = 'https://api.mojidict.com/parse/login'
 
@@ -97,6 +98,57 @@ class MojiServer:
                 raise e
 
         return total_page, mojiwords
+
+    # 请求单个单词数据
+    @retry(times=3)
+    def get_word_data(self, target_id):
+        rw = requests.post(URL_WORD_DETAIL, json={
+            "g_os": "PCWeb",
+            "itemsJson": [{"objectId": target_id}],
+            "skipAccessories": False,
+            "_SessionToken": self.session_token,
+            "_ApplicationId": APPLICATION_ID,
+            "_InstallationId": INSTALLATION_ID,
+            "_ClientVersion": CLIENT_VERSION
+        }, headers=headers, timeout=(5, 5))
+        self.post_request()
+        if rw.status_code != 200:
+            raise Exception('获取单词详情异常, ', target_id, rw.status_code)
+        return utils.get((rw.json()), 'result.result')[0]
+
+    # 获取词性、释义和例句
+    def get_detail(self, target_id):
+        word_data = self.get_word_data(target_id)
+        parts_of_speech = {}
+        trans = {}
+        for detail in word_data['details']:
+            parts_of_speech[detail['objectId']] = detail['title'].replace('#', '・')
+        trans_html = '<ol>'
+        for subdetail in word_data['subdetails']:
+            trans_html += f'<li>{subdetail["title"]}</li>'
+            trans[subdetail['objectId']] = {
+                'title': f"[{parts_of_speech[subdetail['detailsId']]}]{subdetail['title']}" if subdetail[
+                                                                                                   'detailsId'] in parts_of_speech else
+                subdetail['title'],
+                'examples': []
+            }
+        trans_html += '</ol>'
+        for example in word_data['examples']:
+            if example['subdetailsId'] in trans:
+                trans[example['subdetailsId']]['examples'].append((example['title'], example['trans']))
+        examples_html = ''
+        for trans_id in trans.keys():
+            t = trans[trans_id]
+            examples_html += f'<div class="word-trans" onclick="changeDisplay(`{trans_id}`)">{t["title"]}</div><div id="trans-{trans_id}">'
+            for e in t['examples']:
+                examples_html += f'<div class="example-title">{e[0]}</div>'
+                examples_html += f'<div class="example-trans">{e[1]}</div>'
+            examples_html += '</div>'
+        return {
+            'part_of_speech': " ".join(parts_of_speech.values()),
+            'trans': trans_html,
+            'examples': examples_html
+        }
 
     @retry(times=3)
     def get_tts_url(self, word: MojiWord):

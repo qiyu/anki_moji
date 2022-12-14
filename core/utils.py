@@ -54,7 +54,8 @@ def get_addon_dir():
     return addon_dir
 
 
-fields = ['target_id', 'target_type', 'title', 'spell', 'accent', 'pron', 'excerpt', 'sound', 'link', 'note']
+fields = ['target_id', 'target_type', 'title', 'spell', 'accent', 'pron', 'excerpt', 'sound', 'link', 'note',
+          'part_of_speech', 'trans', 'examples']
 
 
 def prepare_model(model_name, deck_name, collection):

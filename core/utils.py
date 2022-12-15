@@ -54,7 +54,7 @@ def get_addon_dir():
     return addon_dir
 
 
-fields = ['target_id', 'target_type', 'title', 'spell', 'accent', 'pron', 'excerpt', 'sound', 'link', 'note',
+fields = ['title', 'note', 'target_id', 'target_type', 'spell', 'accent', 'pron', 'excerpt', 'sound', 'link',
           'part_of_speech', 'trans', 'examples']
 
 
@@ -102,10 +102,3 @@ def create_new_model(model_name, collection):
     collection.models.addTemplate(model, template3)
 
     return model
-
-
-def create_templates(collection):
-    template = collection.models.new_template('spell -> detail')
-    template['qfmt'] = styles.question
-    template['afmt'] = styles.answer
-    return template

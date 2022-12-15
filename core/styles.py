@@ -102,6 +102,12 @@ model_css_class = '''.replay-button svg {
 .sound {
     float: right
 }
+
+ruby rt {
+    font-size: 10px;
+    color: #8b8787;
+    text-align: center;
+}
 '''
 
 front_pron = '''<div class="spell">{{pron}}{{accent}}</div>
@@ -148,6 +154,13 @@ detail = '''<div class="spell">{{spell}}</div>
             trans.style.display = 'block'
         else
             trans.style.display = 'none'
+    }
+</script>
+
+<script>
+    rtList = document.getElementsByTagName('rt')
+    for (let i = 0; i < rtList.length; i++) {
+        rtList[i].innerText = rtList[i].getAttribute('hiragana')
     }
 </script>
 '''

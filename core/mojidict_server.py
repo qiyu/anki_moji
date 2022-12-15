@@ -16,6 +16,8 @@ from .common import retry, common_log
 
 URL_COLLECTION = 'https://api.mojidict.com/parse/functions/folder-fetchContentWithRelatives'
 URL_WORD_DETAIL = 'https://api.mojidict.com/parse/functions/nlt-fetchManyLatestWords'
+URL_EXAMPLE = 'https://api.mojidict.com/parse/functions/nlt-fetchExample'
+URL_SENTENCES = 'https://api.mojidict.com/parse/functions/nlt-fetchManySentences'
 URL_TTS = 'https://api.mojidict.com/parse/functions/tts-fetch'
 URL_LOGIN = 'https://api.mojidict.com/parse/login'
 
@@ -74,22 +76,32 @@ class MojiServer:
         if not rows:
             common_log(f'获取单词列表为空或单词列表不存在，dir_id：{dir_id}，page_index：{page_index}')
             return total_page, mojiwords
-        target_ids = []
+
+        word_ids = []
+        sentence_ids = []
         for row in rows:
-            if row['targetType'] == 102 and utils.get(row, 'target') is not None:
-                target_ids.append(row['targetId'])
-        details = self.get_details(target_ids)
+            target_id = row['targetId']
+            target_type = utils.get(row, 'targetType')
+            if target_type == 102:
+                word_ids.append(target_id)
+            elif target_type == 120:
+                sentence_ids.append(target_id)
+        word_details = self.get_word_details(word_ids)
+        sentences = self.get_sentences(sentence_ids)
+
         for row in rows:
+            target_id = row['targetId']
+            target_type = utils.get(row, 'targetType')
             try:
-                if row['targetType'] == 102:
+                if target_type == 102:
                     target = utils.get(row, 'target')
                     if target is None:
                         continue
-                    detail = details[row['targetId']]
+                    detail = word_details[target_id]
                     mojiwords.append(
                         MojiWord(row['title'],
-                                 row['targetId'],
-                                 row['targetType'],
+                                 target_id,
+                                 target_type,
                                  utils.get(target, 'excerpt') or '',
                                  utils.get(target, 'spell') or '',
                                  utils.get(target, 'accent') or '',
@@ -98,7 +110,39 @@ class MojiServer:
                                  detail['trans'] or '',
                                  detail['examples'] or '',
                                  moji_folder))
-                elif row['targetType'] == 1000:
+                elif target_type == 103:
+                    example = self.get_example(target_id)
+                    if example is None:
+                        continue
+                    mojiwords.append(
+                        MojiWord(row['title'],
+                                 target_id,
+                                 target_type,
+                                 '',
+                                 example['notationTitle'],
+                                 '',
+                                 '',
+                                 '',
+                                 example['trans'],
+                                 '',
+                                 moji_folder))
+                elif target_type == 120:
+                    sentence = sentences[target_id]
+                    if sentence is None:
+                        continue
+                    mojiwords.append(
+                        MojiWord(sentence['title'],
+                                 target_id,
+                                 target_type,
+                                 '',
+                                 sentence['notationTitle'],
+                                 '',
+                                 '',
+                                 '',
+                                 sentence['trans'],
+                                 '',
+                                 moji_folder))
+                elif target_type == 1000:
                     mojiwords.append(
                         MojiFolder(row['title'],
                                    row['targetId'],
@@ -131,9 +175,9 @@ class MojiServer:
         return utils.get((rw.json()), 'result.result')
 
     # 获取词性、释义和例句
-    def get_details(self, target_ids: list):
-        if target_ids is None or len(target_ids) == 0:
-            return None
+    def get_word_details(self, target_ids: list):
+        if not target_ids:
+            return {}
         words_data = self.get_words_data(target_ids)
         details = {}
         for word_data in words_data:
@@ -168,6 +212,44 @@ class MojiServer:
                 'examples': examples_html
             }
         return details
+
+    # 获取单个例句(指词单中加的单句，非单个单词的例句列表)
+    @retry(times=3)
+    def get_example(self, target_id):
+        r = requests.post(URL_EXAMPLE, json={
+            "g_os": "PCWeb",
+            "id": target_id,
+            "_SessionToken": self.session_token,
+            "_ApplicationId": APPLICATION_ID,
+            "_InstallationId": INSTALLATION_ID,
+            "_ClientVersion": CLIENT_VERSION
+        }, headers=headers, timeout=(5, 5))
+        self.post_request()
+        if r.status_code != 200:
+            raise Exception('获取例句异常, ', r.status_code)
+        return utils.get((r.json()), 'result.result')
+
+    @retry(times=3)
+    def get_sentences(self, target_ids: list):
+        if not target_ids:
+            return {}
+        r = requests.post(URL_SENTENCES, json={
+            "g_os": "PCWeb",
+            "ids": target_ids,
+            "withExtra": True,
+            "_SessionToken": self.session_token,
+            "_ApplicationId": APPLICATION_ID,
+            "_InstallationId": INSTALLATION_ID,
+            "_ClientVersion": CLIENT_VERSION
+        }, headers=headers, timeout=(5, 5))
+        self.post_request()
+        if r.status_code != 200:
+            raise Exception('获取句子异常, ', r.status_code)
+        sentences = {}
+        data_list = utils.get((r.json()), 'result.result')
+        for data in data_list:
+            sentences[data['objectId']] = data
+        return sentences
 
     @retry(times=3)
     def get_tts_url(self, word: MojiWord):

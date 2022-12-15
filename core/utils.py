@@ -2,6 +2,7 @@ import json
 import os
 
 from . import styles
+from .mojidict_server import MojiWord
 
 
 def get_config():
@@ -102,3 +103,14 @@ def create_new_model(model_name, collection):
     collection.models.addTemplate(model, template3)
 
     return model
+
+
+def get_link(r: MojiWord):
+    if r.target_type == 102:
+        return "https://www.mojidict.com/details/" + r.target_id
+    elif r.target_type == 103:
+        return "https://www.mojidict.com/example/" + r.target_id
+    elif r.target_type == 120:
+        return "https://www.mojidict.com/sentence/" + r.target_id
+    else:
+        return ''

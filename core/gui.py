@@ -262,7 +262,7 @@ class WordLoader(QRunnable):
             note['target_id'] = r.target_id
             note['target_type'] = str(r.target_type)
             note['sound'] = f'[sound:moji_{r.target_id}.mp3]'
-            note['link'] = f'<a href="https://www.mojidict.com/details/{r.target_id}">Moji Web</a>'
+            note['link'] = utils.get_link(r)
             note['spell'] = r.spell
             note['pron'] = r.pron
             note['excerpt'] = r.excerpt

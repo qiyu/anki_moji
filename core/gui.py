@@ -5,6 +5,11 @@
 import json
 import typing
 from collections import deque
+from concurrent.futures import ThreadPoolExecutor, as_completed
+
+import time
+from time import strftime
+from time import gmtime
 
 from PyQt5 import QtGui
 from PyQt5.QtCore import QThreadPool, pyqtSignal, pyqtSlot, QRunnable
@@ -100,6 +105,7 @@ class ImportWindow(QDialog):
         self.model_name_field.setText(config.get('model_name') or 'Moji')
         self.deck_name_field.setText(config.get('deck_name') or 'Moji')
         self.dir_id_field.setText(config.get('dir_id') or '')
+        self.recursion_check_box.setChecked(config.get('recursion') or False)
         import_form = QFormLayout()
         import_form.addRow(model_name_label, self.model_name_field)
         import_form.addRow(deck_name_label, self.deck_name_field)
@@ -127,14 +133,16 @@ class ImportWindow(QDialog):
         model_name = self.model_name_field.text().strip()
         deck_name = self.deck_name_field.text().strip()
         dir_id = self.dir_id_field.text().strip()
+        recursion = self.recursion_check_box.isChecked()
         if "\\" in deck_name or '"' in deck_name:
             QMessageBox.critical(self, '', 'Deck名称中不能包含"和\\')
             return
 
-        utils.update_config({'model_name': model_name, 'deck_name': deck_name, 'dir_id': dir_id})
+        utils.update_config(
+            {'model_name': model_name, 'deck_name': deck_name, 'dir_id': dir_id, 'recursion': recursion})
         if model_name and deck_name:
             self.word_loader = WordLoader(self.moji_server, self.busy_signal, self.log_signal,
-                                          model_name, deck_name, dir_id, self.recursion_check_box.isChecked())
+                                          model_name, deck_name, dir_id, recursion)
             self.thread_pool.start(self.word_loader)
         else:
             QMessageBox.critical(self, '', 'Deck名称和Note名称必填')
@@ -169,6 +177,7 @@ class WordLoader(QRunnable):
         self.interrupted = True
 
     def save_words(self):
+        start = time.time()
         if common.no_anki_mode:
             model = None
         else:
@@ -179,36 +188,46 @@ class WordLoader(QRunnable):
 
         total_imported_count = 0
         total_skipped_count = 0
+        total_fail_count = 0
 
         moji_folders: typing.Deque[MojiFolder] = deque()
         current_folder = None
         dir_id = self.dir_id
 
         while True:
-            if current_folder is None or current_folder.parent is None:
-                if current_folder:
-                    self.log_signal.emit('开始处理目录：' + current_folder.title)
-                    dir_id = current_folder.target_id
+            with ThreadPoolExecutor() as t:
+                if current_folder is None or current_folder.parent is None:
+                    if current_folder:
+                        self.log_signal.emit('开始处理目录：' + current_folder.title)
+                        dir_id = current_folder.target_id
 
-                for r in self.moji_server.fetch_all_from_server(dir_id, current_folder):
-                    if self.interrupted:
-                        common_log('导入单词终止')
-                        self.interrupted = False
-                        return
+                    res_list = []
+                    for r in self.moji_server.fetch_all_from_server(dir_id, current_folder):
+                        if self.interrupted:
+                            common_log('导入单词终止')
+                            self.interrupted = False
+                            return
 
-                    if isinstance(r, MojiWord):
-                        if self.process_word(r, model):
+                        if isinstance(r, MojiWord):
+                            res = t.submit(self.process_word, r, model)
+                            res_list.append(res)
+                        elif self.recursion:
+                            moji_folders.append(r)
+
+                    for future in as_completed(res_list):
+                        if future.exception():
+                            total_fail_count += 1
+                        elif future.result():
                             total_imported_count += 1
                         else:
                             total_skipped_count += 1
-                    elif self.recursion:
-                        moji_folders.append(r)
 
             if not moji_folders:
                 break
             current_folder = moji_folders.popleft()
 
-        self.log_signal.emit(f'执行结束,共增加{total_imported_count}个单词,跳过{total_skipped_count}个单词')
+        self.log_signal.emit(f'执行结束,用时: {strftime("%M:%S", gmtime(time.time() - start))}')
+        self.log_signal.emit(f'共增加{total_imported_count}个单词,跳过{total_skipped_count}个单词,失败{total_fail_count}个单词')
 
     def process_word(self, r: MojiWord, model) -> bool:
         if common.no_anki_mode:
@@ -249,10 +268,9 @@ class WordLoader(QRunnable):
             note['excerpt'] = r.excerpt
             note['accent'] = r.accent
             note['title'] = r.title
-            detail = self.moji_server.get_detail(r.target_id)
-            note['part_of_speech'] = detail['part_of_speech']
-            note['trans'] = detail['trans']
-            note['examples'] = detail['examples']
+            note['part_of_speech'] = r.part_of_speech
+            note['trans'] = r.trans
+            note['examples'] = r.examples
             try:
                 from aqt import mw
                 mw.col.addNote(note)

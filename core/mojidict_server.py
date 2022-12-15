@@ -35,6 +35,9 @@ class MojiWord:
     spell: str
     accent: str
     pron: str
+    part_of_speech: str
+    trans: str
+    examples: str
     parent: Optional[MojiFolder]
 
 
@@ -71,13 +74,18 @@ class MojiServer:
         if not rows:
             common_log(f'获取单词列表为空或单词列表不存在，dir_id：{dir_id}，page_index：{page_index}')
             return total_page, mojiwords
-
+        target_ids = []
+        for row in rows:
+            if row['targetType'] == 102 and utils.get(row, 'target') is not None:
+                target_ids.append(row['targetId'])
+        details = self.get_details(target_ids)
         for row in rows:
             try:
                 if row['targetType'] == 102:
                     target = utils.get(row, 'target')
                     if target is None:
                         continue
+                    detail = details[row['targetId']]
                     mojiwords.append(
                         MojiWord(row['title'],
                                  row['targetId'],
@@ -86,6 +94,9 @@ class MojiServer:
                                  utils.get(target, 'spell') or '',
                                  utils.get(target, 'accent') or '',
                                  utils.get(target, 'pron') or '',
+                                 detail['part_of_speech'] or '',
+                                 detail['trans'] or '',
+                                 detail['examples'] or '',
                                  moji_folder))
                 elif row['targetType'] == 1000:
                     mojiwords.append(
@@ -99,12 +110,15 @@ class MojiServer:
 
         return total_page, mojiwords
 
-    # 请求单个单词数据
+    # 请求多个单词数据
     @retry(times=3)
-    def get_word_data(self, target_id):
+    def get_words_data(self, target_ids: list):
+        items = []
+        for target_id in target_ids:
+            items.append({"objectId": target_id})
         rw = requests.post(URL_WORD_DETAIL, json={
             "g_os": "PCWeb",
-            "itemsJson": [{"objectId": target_id}],
+            "itemsJson": items,
             "skipAccessories": False,
             "_SessionToken": self.session_token,
             "_ApplicationId": APPLICATION_ID,
@@ -113,42 +127,47 @@ class MojiServer:
         }, headers=headers, timeout=(5, 5))
         self.post_request()
         if rw.status_code != 200:
-            raise Exception('获取单词详情异常, ', target_id, rw.status_code)
-        return utils.get((rw.json()), 'result.result')[0]
+            raise Exception('获取单词详情异常, ', rw.status_code)
+        return utils.get((rw.json()), 'result.result')
 
     # 获取词性、释义和例句
-    def get_detail(self, target_id):
-        word_data = self.get_word_data(target_id)
-        parts_of_speech = {}
-        trans = {}
-        for detail in word_data['details']:
-            parts_of_speech[detail['objectId']] = detail['title'].replace('#', '・')
-        trans_html = '<ol>'
-        for subdetail in word_data['subdetails']:
-            trans_html += f'<li>{subdetail["title"]}</li>'
-            trans[subdetail['objectId']] = {
-                'title': f"[{parts_of_speech[subdetail['detailsId']]}]{subdetail['title']}" if subdetail[
-                                                                                                   'detailsId'] in parts_of_speech else
-                subdetail['title'],
-                'examples': []
+    def get_details(self, target_ids: list):
+        if target_ids is None or len(target_ids) == 0:
+            return None
+        words_data = self.get_words_data(target_ids)
+        details = {}
+        for word_data in words_data:
+            parts_of_speech = {}
+            trans = {}
+            for detail in word_data['details']:
+                parts_of_speech[detail['objectId']] = detail['title'].replace('#', '・')
+            trans_html = '<ol>'
+            for subdetail in word_data['subdetails']:
+                trans_html += f'<li>{subdetail["title"]}</li>'
+                trans[subdetail['objectId']] = {
+                    'title': f"[{parts_of_speech[subdetail['detailsId']]}]{subdetail['title']}" if subdetail[
+                                                                                                       'detailsId'] in parts_of_speech else
+                    subdetail['title'],
+                    'examples': []
+                }
+            trans_html += '</ol>'
+            for example in word_data['examples']:
+                if example['subdetailsId'] in trans:
+                    trans[example['subdetailsId']]['examples'].append((example['title'], example['trans']))
+            examples_html = ''
+            for trans_id in trans.keys():
+                t = trans[trans_id]
+                examples_html += f'<div class="word-trans" onclick="changeDisplay(`{trans_id}`)">{t["title"]}</div><div id="trans-{trans_id}">'
+                for e in t['examples']:
+                    examples_html += f'<div class="example-title">{e[0]}</div>'
+                    examples_html += f'<div class="example-trans">{e[1]}</div>'
+                examples_html += '</div>'
+            details[word_data['word']['objectId']] = {
+                'part_of_speech': " ".join(parts_of_speech.values()),
+                'trans': trans_html,
+                'examples': examples_html
             }
-        trans_html += '</ol>'
-        for example in word_data['examples']:
-            if example['subdetailsId'] in trans:
-                trans[example['subdetailsId']]['examples'].append((example['title'], example['trans']))
-        examples_html = ''
-        for trans_id in trans.keys():
-            t = trans[trans_id]
-            examples_html += f'<div class="word-trans" onclick="changeDisplay(`{trans_id}`)">{t["title"]}</div><div id="trans-{trans_id}">'
-            for e in t['examples']:
-                examples_html += f'<div class="example-title">{e[0]}</div>'
-                examples_html += f'<div class="example-trans">{e[1]}</div>'
-            examples_html += '</div>'
-        return {
-            'part_of_speech': " ".join(parts_of_speech.values()),
-            'trans': trans_html,
-            'examples': examples_html
-        }
+        return details
 
     @retry(times=3)
     def get_tts_url(self, word: MojiWord):
@@ -203,6 +222,7 @@ class MojiServer:
     def post_request(self):
         self.last_request = datetime.datetime.now().timestamp()
 
+    @retry(times=10)
     def get_tts_url_and_download(self, word: MojiWord):
         url = self.get_tts_url(word)
         return self.get_file(url)

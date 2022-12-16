@@ -5,11 +5,7 @@
 import json
 import typing
 from collections import deque
-from concurrent.futures import ThreadPoolExecutor, as_completed
-
-import time
-from time import strftime
-from time import gmtime
+import threading
 
 from PyQt5 import QtGui
 from PyQt5.QtCore import QThreadPool, pyqtSignal, pyqtSlot, QRunnable
@@ -177,7 +173,6 @@ class WordLoader(QRunnable):
         self.interrupted = True
 
     def save_words(self):
-        start = time.time()
         if common.no_anki_mode:
             model = None
         else:
@@ -188,46 +183,35 @@ class WordLoader(QRunnable):
 
         total_imported_count = 0
         total_skipped_count = 0
-        total_fail_count = 0
 
         moji_folders: typing.Deque[MojiFolder] = deque()
         current_folder = None
         dir_id = self.dir_id
 
         while True:
-            with ThreadPoolExecutor() as t:
-                if current_folder is None or current_folder.parent is None:
-                    if current_folder:
-                        self.log_signal.emit('开始处理目录：' + current_folder.title)
-                        dir_id = current_folder.target_id
+            if current_folder is None or current_folder.parent is None:
+                if current_folder:
+                    self.log_signal.emit('开始处理目录：' + current_folder.title)
+                    dir_id = current_folder.target_id
 
-                    res_list = []
-                    for r in self.moji_server.fetch_all_from_server(dir_id, current_folder):
-                        if self.interrupted:
-                            common_log('导入单词终止')
-                            self.interrupted = False
-                            return
-
-                        if isinstance(r, MojiWord):
-                            res = t.submit(self.process_word, r, model)
-                            res_list.append(res)
-                        elif self.recursion:
-                            moji_folders.append(r)
-
-                    for future in as_completed(res_list):
-                        if future.exception():
-                            total_fail_count += 1
-                        elif future.result():
+                for r in self.moji_server.fetch_all_from_server(dir_id, current_folder):
+                    if self.interrupted:
+                        common_log('导入单词终止')
+                        self.interrupted = False
+                        return
+                    if isinstance(r, MojiWord):
+                        if self.process_word(r, model):
                             total_imported_count += 1
                         else:
                             total_skipped_count += 1
+                    elif self.recursion:
+                        moji_folders.append(r)
 
             if not moji_folders:
                 break
             current_folder = moji_folders.popleft()
 
-        self.log_signal.emit(f'执行结束,用时: {strftime("%M:%S", gmtime(time.time() - start))}')
-        self.log_signal.emit(f'共增加{total_imported_count}个单词,跳过{total_skipped_count}个单词,失败{total_fail_count}个单词')
+        self.log_signal.emit(f'共增加{total_imported_count}个单词,跳过{total_skipped_count}个单词')
 
     def process_word(self, r: MojiWord, model) -> bool:
         if common.no_anki_mode:
@@ -251,7 +235,7 @@ class WordLoader(QRunnable):
                 common_log(f'获取发音文件异常:{r.target_id} {r.title}')
                 self.log_signal.emit(f'获取发音文件异常:{r.target_id} {r.title}')
                 raise
-            storage.save_tts_file(file_path, content)
+            threading.Thread(target=storage.save_tts_file, args=(file_path, content)).start()
 
         if common.no_anki_mode:
             common_log(f"虚拟保存note")

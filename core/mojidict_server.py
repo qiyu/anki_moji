@@ -304,7 +304,6 @@ class MojiServer:
     def post_request(self):
         self.last_request = datetime.datetime.now().timestamp()
 
-    @retry(times=10)
     def get_tts_url_and_download(self, word: MojiWord):
         url = self.get_tts_url(word)
         return self.get_file(url)

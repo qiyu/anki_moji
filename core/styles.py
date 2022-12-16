@@ -1,4 +1,9 @@
-model_css_class = '''.replay-button svg {
+model_css_class = '''@font-face {
+  font-family: HiraMinProN-W6;
+  src: url("_HiraMinProN-W6.ttf");
+}
+
+.replay-button svg {
     width: 20px;
     height: 20px;
 }
@@ -29,8 +34,14 @@ model_css_class = '''.replay-button svg {
     display: block;
 }
 
+.card.nightMode  {
+    color: #fafafc;
+    background: #0e0e10;
+}
+
+
 .nightMode .spell, .nightMode .pron-and-accent {
-    color: white;
+    color: #fafafc;
 }
 
 .spell {
@@ -41,6 +52,7 @@ model_css_class = '''.replay-button svg {
 }
 
 .pron-and-accent {
+    font-size: 16px;
     color: #3d454c;
     line-height: 1.4;
 }
@@ -77,6 +89,10 @@ model_css_class = '''.replay-button svg {
     margin-bottom: 16px;
 }
 
+.nightMode .word-trans {
+    background: #acacac1a
+}
+
 .example-title {
     padding-left: 16px;
     font-size: 16px;
@@ -105,9 +121,9 @@ model_css_class = '''.replay-button svg {
 
 ruby rt {
     font-weight: 400;
-    font-size: 10px;
-    color: #8b8787;
+    font-size: 11px;
     text-align: center;
+    font-family: "Hiragino Kaku Gothic Pro",Meiryo,MS Gothic,Tahoma,Arial,PingFangSC-Regular,Microsoft Yahei,"黑体";
 }
 '''
 

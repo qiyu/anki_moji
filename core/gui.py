@@ -211,7 +211,7 @@ class WordLoader(QRunnable):
                 break
             current_folder = moji_folders.popleft()
 
-        self.log_signal.emit(f'共增加{total_imported_count}个单词,跳过{total_skipped_count}个单词')
+        self.log_signal.emit(f'执行结束,共增加{total_imported_count}个单词,跳过{total_skipped_count}个单词')
 
     def process_word(self, r: MojiWord, model) -> bool:
         if common.no_anki_mode:

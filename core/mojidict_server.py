@@ -197,7 +197,8 @@ class MojiServer:
             trans_html += '</ol>'
             for example in word_data['examples']:
                 if example['subdetailsId'] in trans:
-                    trans[example['subdetailsId']]['examples'].append((example['notationTitle'], example['trans']))
+                    trans[example['subdetailsId']]['examples'].append(
+                        (example['notationTitle'], example.get('trans') or ''))
             examples_html = ''
             for trans_id in trans.keys():
                 t = trans[trans_id]

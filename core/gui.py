@@ -255,7 +255,6 @@ class WordLoader(QRunnable):
             note['trans'] = r.trans
             note['examples'] = r.examples
             try:
-                from aqt import mw
                 mw.col.addNote(note)
             except Exception:
                 common_log('添加单词异常:' + json.dumps(r.__dict__, ensure_ascii=False))

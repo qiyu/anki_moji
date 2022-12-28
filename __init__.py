@@ -5,14 +5,25 @@ from aqt import mw
 from .core.anki import on_edit_filter
 from .core.gui import MainWindow
 
+hooks.field_filter.append(on_edit_filter)
 
-def activate():
+
+def activate_import():
     window = MainWindow()
     window.exec()
 
 
-hooks.field_filter.append(on_edit_filter)
+import_action = QAction('从Moji导入', mw)
+import_action.triggered.connect(activate_import)
+mw.form.menuTools.addAction(import_action)
 
-action = QAction('从Moji导入', mw)
-action.triggered.connect(activate)
-mw.form.menuTools.addAction(action)
+
+def activate_update():
+    if mw.reviewer.card:
+        pass
+    print()
+
+
+update_action = QAction('从Moji更新', mw)
+update_action.triggered.connect(activate_update)
+mw.form.menuTools.addAction(update_action)

@@ -4,6 +4,8 @@ import os
 from . import styles
 from .mojidict_server import MojiWord
 
+from .common import common_log
+
 
 def get_config():
     try:
@@ -55,8 +57,8 @@ def get_addon_dir():
     return addon_dir
 
 
-fields = ['title', 'note', 'target_id', 'target_type', 'spell', 'accent', 'pron', 'excerpt', 'sound', 'link',
-          'part_of_speech', 'trans', 'examples']
+ALL_FIELDS = ['title', 'note', 'target_id', 'target_type', 'spell', 'accent', 'pron', 'excerpt', 'sound', 'link',
+              'part_of_speech', 'trans', 'examples']
 
 
 def prepare_model(model_name, deck_name, collection):
@@ -64,14 +66,17 @@ def prepare_model(model_name, deck_name, collection):
     Returns a model for our future notes.
     Creates a deck to keep them.
     """
-    if is_model_exist(model_name, collection, fields):
+    if is_model_exist(model_name, collection, ALL_FIELDS):
         model = collection.models.by_name(model_name)
     else:
         model = create_new_model(model_name, collection)
-    # Create a deck "LinguaLeo" and write id to deck_id
     model['did'] = collection.decks.id(deck_name)
+
     collection.models.set_current(model)
     collection.models.save(model)
+
+    # 处理历史版本的模板数据
+    update_template(model, collection)
     return model
 
 
@@ -81,26 +86,36 @@ def is_model_exist(model_name, collection, fields):
     return name_exist
 
 
+OLD_TEMPLATE_NAME = 'spell -> detail'
+TEMPLATE_NAME = 'spell -> detail v2.0.0'
+
+
+def update_template(model, collection):
+    target = None
+    for tmpl in model['tmpls']:
+        if tmpl['name'] == OLD_TEMPLATE_NAME:
+            target = tmpl
+
+    if target is not None:
+        target['name'] = TEMPLATE_NAME
+        target['qfmt'] = styles.front_spell
+        target['afmt'] = styles.detail
+        model['css'] = styles.model_css_class
+
+        collection.models.save(model)
+        common_log(f'更新模板信息，name：{TEMPLATE_NAME}')
+
+
 def create_new_model(model_name, collection):
     model = collection.models.new(model_name)
     model['css'] = styles.model_css_class
-    for field in fields:
+    for field in ALL_FIELDS:
         collection.models.addField(model, collection.models.new_field(field))
 
-    template1 = collection.models.new_template('spell -> detail')
+    template1 = collection.models.new_template(TEMPLATE_NAME)
     template1['qfmt'] = styles.front_spell
     template1['afmt'] = styles.detail
     collection.models.addTemplate(model, template1)
-
-    template2 = collection.models.new_template('pron -> detail')
-    template2['qfmt'] = styles.front_pron
-    template2['afmt'] = styles.detail
-    collection.models.addTemplate(model, template2)
-
-    template3 = collection.models.new_template('trans -> detail')
-    template3['qfmt'] = styles.front_trans
-    template3['afmt'] = styles.detail
-    collection.models.addTemplate(model, template3)
 
     return model
 

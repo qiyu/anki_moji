@@ -2,6 +2,7 @@ import json
 import os
 
 from . import styles
+from .mojidict_server import MojiWord
 
 
 def get_config():
@@ -54,7 +55,8 @@ def get_addon_dir():
     return addon_dir
 
 
-fields = ['target_id', 'target_type', 'title', 'spell', 'accent', 'pron', 'excerpt', 'sound', 'link', 'note']
+fields = ['title', 'note', 'target_id', 'target_type', 'spell', 'accent', 'pron', 'excerpt', 'sound', 'link',
+          'part_of_speech', 'trans', 'examples']
 
 
 def prepare_model(model_name, deck_name, collection):
@@ -84,13 +86,31 @@ def create_new_model(model_name, collection):
     model['css'] = styles.model_css_class
     for field in fields:
         collection.models.addField(model, collection.models.new_field(field))
-    template = create_templates(collection)
-    collection.models.addTemplate(model, template)
+
+    template1 = collection.models.new_template('spell -> detail')
+    template1['qfmt'] = styles.front_spell
+    template1['afmt'] = styles.detail
+    collection.models.addTemplate(model, template1)
+
+    template2 = collection.models.new_template('pron -> detail')
+    template2['qfmt'] = styles.front_pron
+    template2['afmt'] = styles.detail
+    collection.models.addTemplate(model, template2)
+
+    template3 = collection.models.new_template('trans -> detail')
+    template3['qfmt'] = styles.front_trans
+    template3['afmt'] = styles.detail
+    collection.models.addTemplate(model, template3)
+
     return model
 
 
-def create_templates(collection):
-    template = collection.models.new_template('spell -> detail')
-    template['qfmt'] = styles.question
-    template['afmt'] = styles.answer
-    return template
+def get_link(r: MojiWord):
+    if r.target_type == 102:
+        return "https://www.mojidict.com/details/" + r.target_id
+    elif r.target_type == 103:
+        return "https://www.mojidict.com/example/" + r.target_id
+    elif r.target_type == 120:
+        return "https://www.mojidict.com/sentence/" + r.target_id
+    else:
+        return ''

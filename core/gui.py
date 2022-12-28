@@ -5,6 +5,7 @@
 import json
 import typing
 from collections import deque
+import threading
 
 from PyQt5 import QtGui
 from PyQt5.QtCore import QThreadPool, pyqtSignal, pyqtSlot, QRunnable
@@ -99,7 +100,8 @@ class ImportWindow(QDialog):
         config = utils.get_config()
         self.model_name_field.setText(config.get('model_name') or 'Moji')
         self.deck_name_field.setText(config.get('deck_name') or 'Moji')
-        self.dir_id_field.setText('')
+        self.dir_id_field.setText(config.get('dir_id') or '')
+        self.recursion_check_box.setChecked(config.get('recursion') or False)
         import_form = QFormLayout()
         import_form.addRow(model_name_label, self.model_name_field)
         import_form.addRow(deck_name_label, self.deck_name_field)
@@ -127,14 +129,16 @@ class ImportWindow(QDialog):
         model_name = self.model_name_field.text().strip()
         deck_name = self.deck_name_field.text().strip()
         dir_id = self.dir_id_field.text().strip()
+        recursion = self.recursion_check_box.isChecked()
         if "\\" in deck_name or '"' in deck_name:
             QMessageBox.critical(self, '', 'Deck名称中不能包含"和\\')
             return
 
-        utils.update_config({'model_name': model_name, 'deck_name': deck_name})
+        utils.update_config(
+            {'model_name': model_name, 'deck_name': deck_name, 'dir_id': dir_id, 'recursion': recursion})
         if model_name and deck_name:
             self.word_loader = WordLoader(self.moji_server, self.busy_signal, self.log_signal,
-                                          model_name, deck_name, dir_id, self.recursion_check_box.isChecked())
+                                          model_name, deck_name, dir_id, recursion)
             self.thread_pool.start(self.word_loader)
         else:
             QMessageBox.critical(self, '', 'Deck名称和Note名称必填')
@@ -195,7 +199,6 @@ class WordLoader(QRunnable):
                         common_log('导入单词终止')
                         self.interrupted = False
                         return
-
                     if isinstance(r, MojiWord):
                         if self.process_word(r, model):
                             total_imported_count += 1
@@ -232,7 +235,7 @@ class WordLoader(QRunnable):
                 common_log(f'获取发音文件异常:{r.target_id} {r.title}')
                 self.log_signal.emit(f'获取发音文件异常:{r.target_id} {r.title}')
                 raise
-            storage.save_tts_file(file_path, content)
+            threading.Thread(target=storage.save_tts_file, args=(file_path, content)).start()
 
         if common.no_anki_mode:
             common_log(f"虚拟保存note")
@@ -243,12 +246,15 @@ class WordLoader(QRunnable):
             note['target_id'] = r.target_id
             note['target_type'] = str(r.target_type)
             note['sound'] = f'[sound:moji_{r.target_id}.mp3]'
-            note['link'] = f'<a href="https://www.mojidict.com/details/{r.target_id}">Moji Web</a>'
+            note['link'] = utils.get_link(r)
             note['spell'] = r.spell
             note['pron'] = r.pron
             note['excerpt'] = r.excerpt
             note['accent'] = r.accent
             note['title'] = r.title
+            note['part_of_speech'] = r.part_of_speech
+            note['trans'] = r.trans
+            note['examples'] = r.examples
             try:
                 from aqt import mw
                 mw.col.addNote(note)

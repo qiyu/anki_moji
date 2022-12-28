@@ -5,7 +5,6 @@
 import json
 import typing
 from collections import deque
-import threading
 
 from PyQt5 import QtGui
 from PyQt5.QtCore import QThreadPool, pyqtSignal, pyqtSlot, QRunnable
@@ -235,7 +234,7 @@ class WordLoader(QRunnable):
                 common_log(f'获取发音文件异常:{r.target_id} {r.title}')
                 self.log_signal.emit(f'获取发音文件异常:{r.target_id} {r.title}')
                 raise
-            threading.Thread(target=storage.save_tts_file, args=(file_path, content)).start()
+            storage.save_tts_file(file_path, content)
 
         if common.no_anki_mode:
             common_log(f"虚拟保存note")

@@ -54,11 +54,12 @@ class MojiFolder:
 class MojiServer:
     def __init__(self):
         self.session_token = None
-        self.last_request = None
+        # 记录上次请求完成的时间，保证多次请求接口之间的间隔，防止请求过快
+        self.last_requests = {}
 
     @retry(times=3)
     def fetch_from_server(self, dir_id, page_index, moji_folder: Optional[MojiFolder] = None):
-        self.pre_request()
+        self.pre_request('fetch_from_server')
         r = requests.post(URL_COLLECTION, json={
             "fid": dir_id, "pageIndex": page_index, "count": 30, "sortType": 0,
             "_SessionToken": self.session_token,
@@ -66,7 +67,8 @@ class MojiServer:
             "_InstallationId": INSTALLATION_ID,
             "_ClientVersion": CLIENT_VERSION
         }, headers=headers, timeout=(5, 5))
-        self.post_request()
+        self.post_request('fetch_from_server')
+
         if r.status_code != 200:
             raise Exception(f'获取单词列表异常, {dir_id}, {page_index}')
         data = (r.json())
@@ -160,6 +162,8 @@ class MojiServer:
         items = []
         for target_id in target_ids:
             items.append({"objectId": target_id})
+
+        self.pre_request('word_detail')
         rw = requests.post(URL_WORD_DETAIL, json={
             "g_os": "PCWeb",
             "itemsJson": items,
@@ -169,7 +173,8 @@ class MojiServer:
             "_InstallationId": INSTALLATION_ID,
             "_ClientVersion": CLIENT_VERSION
         }, headers=headers, timeout=(5, 5))
-        self.post_request()
+        self.post_request('word_detail')
+
         if rw.status_code != 200:
             raise Exception('获取单词详情异常, ', rw.status_code)
         return utils.get((rw.json()), 'result.result')
@@ -217,6 +222,7 @@ class MojiServer:
     # 获取单个例句(指词单中加的单句，非单个单词的例句列表)
     @retry(times=3)
     def get_example(self, target_id):
+        self.pre_request('example')
         r = requests.post(URL_EXAMPLE, json={
             "g_os": "PCWeb",
             "id": target_id,
@@ -225,7 +231,8 @@ class MojiServer:
             "_InstallationId": INSTALLATION_ID,
             "_ClientVersion": CLIENT_VERSION
         }, headers=headers, timeout=(5, 5))
-        self.post_request()
+        self.post_request('example')
+
         if r.status_code != 200:
             raise Exception('获取例句异常, ', r.status_code)
         return utils.get((r.json()), 'result.result')
@@ -234,6 +241,8 @@ class MojiServer:
     def get_sentences(self, target_ids: list):
         if not target_ids:
             return {}
+
+        self.pre_request('sentences')
         r = requests.post(URL_SENTENCES, json={
             "g_os": "PCWeb",
             "ids": target_ids,
@@ -243,7 +252,8 @@ class MojiServer:
             "_InstallationId": INSTALLATION_ID,
             "_ClientVersion": CLIENT_VERSION
         }, headers=headers, timeout=(5, 5))
-        self.post_request()
+        self.post_request('sentences')
+
         if r.status_code != 200:
             raise Exception('获取句子异常, ', r.status_code)
         sentences = {}
@@ -254,8 +264,7 @@ class MojiServer:
 
     @retry(times=3)
     def get_tts_url(self, word: MojiWord):
-        self.ensure_login()
-        self.pre_request()
+        self.pre_request('tts')
         r = requests.post(URL_TTS, json={
             'g_os': 'PCWeb',
             'tarId': word.target_id,
@@ -266,16 +275,18 @@ class MojiServer:
             "_InstallationId": INSTALLATION_ID,
             "_ClientVersion": CLIENT_VERSION
         }, headers=headers, timeout=(5, 5))
-        self.post_request()
+        self.post_request('tts')
+
         if r.status_code != 200:
             raise Exception(f'获取单词发音文件地址异常, {word.target_id}')
         return utils.get(r.json(), 'result.result.url')
 
     @retry(times=3)
     def get_file(self, url):
-        self.pre_request()
+        self.pre_request('tts_file')
         res = requests.get(url, timeout=(5, 5))
-        self.post_request()
+        self.post_request('tts_file')
+
         if res.status_code != 200:
             raise Exception(f'获取单词发音文件异常, {url}')
         return res.content
@@ -285,7 +296,7 @@ class MojiServer:
             raise Exception('未登录')
 
     def login(self, username, password):
-        self.pre_request()
+        self.pre_request('login')
         r = requests.post(URL_LOGIN, json={
             'username': username,
             'password': password,
@@ -293,17 +304,21 @@ class MojiServer:
             "_InstallationId": INSTALLATION_ID,
             "_ClientVersion": CLIENT_VERSION
         }, headers=headers, timeout=(5, 5))
-        self.post_request()
+        self.post_request('login')
+
         self.session_token = utils.get(r.json(), 'sessionToken')
         if not self.session_token:
             raise Exception('登录失败')
 
-    def pre_request(self):
-        if self.last_request is not None and datetime.datetime.now().timestamp() - self.last_request < 0.6:
-            time.sleep(1)
+    def pre_request(self, request_key):
+        # 防止因为请求速度过快，影响moji web服务器的正确响应
+        last_request = self.last_requests.get(request_key)
+        min_interval = 1
+        if last_request is not None and datetime.datetime.now().timestamp() - last_request < min_interval:
+            time.sleep(min_interval)
 
-    def post_request(self):
-        self.last_request = datetime.datetime.now().timestamp()
+    def post_request(self, request_key):
+        self.last_requests[request_key] = datetime.datetime.now().timestamp()
 
     def get_tts_url_and_download(self, word: MojiWord):
         url = self.get_tts_url(word)

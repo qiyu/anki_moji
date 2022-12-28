@@ -161,7 +161,7 @@ detail = '''<div class="spell">{{spell}}</div>
 {{/note}}
 <br/>
 {{^examples}}
-<div style="font-size: 16px;">{{trans}}</div>
+<div style="font-size: 16px;">{{trans}}{{^trans}}{{excerpt}}{{/trans}}</div>
 {{/examples}}
 <div>{{examples}}</div>
 <script>

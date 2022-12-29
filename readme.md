@@ -3,6 +3,6 @@
 2. 增加例句展示
 3. 增加了词单中句子、例句的导入支持
 
-![预览图](md_img.png)
+![预览图](docs/md_img.png)
 
 原插件链接：https://ankiweb.net/shared/info/131403862

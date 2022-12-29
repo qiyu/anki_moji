@@ -1,5 +1,6 @@
 import re
 
+from anki.collection import SearchNode
 from anki.template import TemplateRenderContext
 
 
@@ -49,5 +50,7 @@ def refresh_current_note(note, word):
 
 def check_duplicate(deck_name, target_id):
     from aqt import mw
-    note_dupes = mw.col.find_notes(f'deck:"{deck_name}" and target_id:{target_id}')
+    note_dupes = mw.col.find_notes(
+        mw.col.build_search_string(target_id, SearchNode(field_name='target_id', deck=deck_name))
+    )
     return len(note_dupes) > 0

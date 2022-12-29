@@ -8,7 +8,7 @@ import datetime
 import json
 import time
 from dataclasses import dataclass
-from typing import Iterable, Any, Union, Optional
+from typing import Iterable, Any, Union, Optional, List
 import requests
 
 from . import utils
@@ -53,7 +53,10 @@ class MojiFolder:
 
 class MojiServer:
     def __init__(self):
+        # 记录登录的token
         self.session_token = None
+        # 记录生成登录token的时间
+        self.session_token_datetime = None
         # 记录上次请求完成的时间，保证多次请求接口之间的间隔，防止请求过快
         self.last_requests = {}
 
@@ -74,10 +77,16 @@ class MojiServer:
         data = (r.json())
         rows = utils.get(data, 'result.result')
         total_page = utils.get(data, 'result.totalPage') or 0
-        mojiwords = []
         if not rows:
             common_log(f'获取单词列表为空或单词列表不存在，dir_id：{dir_id}，page_index：{page_index}')
-            return total_page, mojiwords
+            return total_page, []
+
+        moji_words = self.parse_rows(rows, moji_folder)
+
+        return total_page, moji_words
+
+    def parse_rows(self, rows, parent_moji_folder=None):
+        result:List[Union[MojiWord, MojiFolder]] = []
 
         word_ids = []
         sentence_ids = []
@@ -90,17 +99,17 @@ class MojiServer:
                 sentence_ids.append(target_id)
         word_details = self.get_word_details(word_ids)
         sentences = self.get_sentences(sentence_ids)
-
         for row in rows:
             target_id = row['targetId']
             target_type = utils.get(row, 'targetType')
             try:
                 if target_type == 102:
                     target = utils.get(row, 'target')
+                    # moji web中已经删除的数据也会在返回的数据列表中，但target为None，因此这个判断是为了排除已经删除的数据
                     if target is None:
                         continue
                     detail = word_details[target_id]
-                    mojiwords.append(
+                    result.append(
                         MojiWord(row['title'],
                                  target_id,
                                  target_type,
@@ -111,12 +120,12 @@ class MojiServer:
                                  detail['part_of_speech'] or '',
                                  detail['trans'] or '',
                                  detail['examples'] or '',
-                                 moji_folder))
+                                 parent_moji_folder))
                 elif target_type == 103:
                     example = self.get_example(target_id)
                     if example is None:
                         continue
-                    mojiwords.append(
+                    result.append(
                         MojiWord(row['title'],
                                  target_id,
                                  target_type,
@@ -127,12 +136,12 @@ class MojiServer:
                                  '',
                                  example['trans'],
                                  '',
-                                 moji_folder))
+                                 parent_moji_folder))
                 elif target_type == 120:
                     sentence = sentences[target_id]
                     if sentence is None:
                         continue
-                    mojiwords.append(
+                    result.append(
                         MojiWord(sentence['title'],
                                  target_id,
                                  target_type,
@@ -143,18 +152,25 @@ class MojiServer:
                                  '',
                                  sentence['trans'],
                                  '',
-                                 moji_folder))
+                                 parent_moji_folder))
                 elif target_type == 1000:
-                    mojiwords.append(
+                    result.append(
                         MojiFolder(row['title'],
                                    row['targetId'],
                                    row['targetType'],
-                                   moji_folder))
+                                   parent_moji_folder))
             except Exception as e:
                 common_log('处理数据出错：' + json.dumps(row, ensure_ascii=False))
                 raise e
 
-        return total_page, mojiwords
+        return result
+
+    # 获取单个单词详情，但pron、accent、spell、excerpt的值始终为空，且title字段的值不会更新
+    def fetch_single_word(self, target_id, target_type, title):
+        moji_words = self.parse_rows([{'targetId': target_id, 'targetType': target_type, 'title': title, 'target': {}}])
+        if len(moji_words) != 1:
+            return None
+        return moji_words[0]
 
     # 请求多个单词数据
     @retry(times=3)
@@ -309,6 +325,11 @@ class MojiServer:
         self.session_token = utils.get(r.json(), 'sessionToken')
         if not self.session_token:
             raise Exception('登录失败')
+        self.session_token_datetime = datetime.datetime.now()
+
+    def session_valid(self):
+        return (self.session_token is not None) and (self.session_token_datetime is not None) and (
+                datetime.datetime.now() - self.session_token_datetime < datetime.timedelta(hours=1))
 
     def pre_request(self, request_key):
         # 防止因为请求速度过快，影响moji web服务器的正确响应

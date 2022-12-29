@@ -11,15 +11,16 @@ from PyQt5.QtCore import QThreadPool, pyqtSignal, pyqtSlot, QRunnable
 from PyQt5.QtWidgets import QDialog, QLabel, QLineEdit, QPushButton, QFormLayout, QVBoxLayout, QHBoxLayout, \
     QPlainTextEdit, QMessageBox, QCheckBox
 
-from . import utils, storage, common
+from . import utils, storage, common, anki
 from .common import common_log
 from .mojidict_server import MojiServer, MojiWord, MojiFolder
 
 
 class MainWindow(QDialog):
-    def __init__(self, parent=None):
+    def __init__(self, moji_server, after_login, parent=None):
         QDialog.__init__(self, parent)
-        self.moji_server = MojiServer()
+        self.moji_server = moji_server
+        self.after_login = after_login
 
         self.login_field = QLineEdit()
         self.pass_field = QLineEdit()
@@ -58,8 +59,8 @@ class MainWindow(QDialog):
             return
 
         self.close()
-        window = ImportWindow(self.moji_server)
-        window.exec_()
+
+        self.after_login()
 
 
 class ImportWindow(QDialog):
@@ -261,3 +262,41 @@ class WordLoader(QRunnable):
                 raise
         self.log_signal.emit(f'增加单词:{r.target_id} {r.title}')
         return True
+
+
+def activate_import(moji_server):
+    def after_login():
+        import_window = ImportWindow(moji_server)
+        import_window.exec()
+
+    login_if_need_and_exec(after_login, moji_server)
+
+
+def activate_update(window, moji_server):
+    def after_login():
+        try:
+            note, target_id, target_type, title = anki.get_current_review_note()
+        except Exception as e:
+            QMessageBox.critical(window, '', str(e))
+            return
+
+        word = moji_server.fetch_single_word(target_id, target_type, title)
+
+        # 更新发音文件
+        tts_file_content = moji_server.get_tts_url_and_download(word)
+        file_path = storage.get_file_path(target_id)
+        storage.save_tts_file(file_path, tts_file_content)
+
+        anki.refresh_current_note(note, word)
+
+        QMessageBox.information(window, '', f'更新[{target_id} {title}]成功')
+
+    login_if_need_and_exec(after_login, moji_server)
+
+
+def login_if_need_and_exec(after_login, moji_server):
+    if not moji_server.session_valid():
+        login_window = MainWindow(moji_server, after_login)
+        login_window.exec()
+    else:
+        after_login()

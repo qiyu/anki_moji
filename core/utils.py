@@ -74,6 +74,8 @@ def prepare_model(model_name, deck_name, collection):
     collection.models.set_current(model)
     collection.models.save(model)
 
+    # 处理历史版本的noteType字段数据
+    update_model_fields(model, collection)
     # 处理历史版本的模板数据
     update_template(model, collection)
     return model
@@ -83,6 +85,21 @@ def is_model_exist(model_name, collection, fields):
     all_names = [x.name for x in collection.models.all_names_and_ids()]
     name_exist = model_name in all_names
     return name_exist
+
+
+def update_model_fields(model, collection):
+    names = list(map(lambda fld: fld['name'], model['flds']))
+
+    changed = False
+    for field_name in ALL_FIELDS:
+        if field_name not in names:
+            field = collection.models.new_field(field_name)
+            collection.models.add_field(model, field)
+            changed = True
+            common_log(f'增加noteType字段，field_name：{field_name}')
+
+    if changed:
+        collection.models.save(model)
 
 
 OLD_TEMPLATE_NAME = 'spell -> detail'
@@ -105,7 +122,7 @@ def update_template(model, collection):
         model['css'] = styles.model_css_class
 
         collection.models.save(model)
-        common_log(f'更新模板信息，name：{TEMPLATE_NAME}')
+        common_log(f'更新noteType模板信息，template_name：{TEMPLATE_NAME}')
 
 
 def create_new_model(model_name, collection):

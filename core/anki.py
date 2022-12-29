@@ -45,3 +45,9 @@ def refresh_current_note(note, word):
 
     op_changes = mw.col.update_note(note)
     mw.reviewer.op_executed(op_changes, None, True)
+
+
+def check_duplicate(deck_name, target_id):
+    from aqt import mw
+    note_dupes = mw.col.find_notes(f'deck:"{deck_name}" and target_id:{target_id}')
+    return len(note_dupes) > 0

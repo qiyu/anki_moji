@@ -151,7 +151,7 @@ class ImportWindow(QDialog):
 
 
 class WordLoader(QRunnable):
-    def __init__(self, moji_server, busy_signal, log_signal, model_name, deck_name, dir_id, recursion):
+    def __init__(self, moji_server: MojiServer, busy_signal, log_signal, model_name, deck_name, dir_id, recursion):
         super().__init__()
         self.moji_server = moji_server
         self.busy_signal = busy_signal
@@ -194,16 +194,22 @@ class WordLoader(QRunnable):
                     self.log_signal.emit('开始处理目录：' + current_folder.title)
                     dir_id = current_folder.target_id
 
-                for r in self.moji_server.fetch_all_from_server(dir_id, current_folder):
+                for duplicate, r in self.moji_server.fetch_all_from_server(
+                        dir_id,
+                        lambda target_id: anki.check_duplicate(self.deck_name, target_id),
+                        current_folder):
+
                     if self.interrupted:
                         common_log('导入单词终止')
                         self.interrupted = False
                         return
-                    if isinstance(r, MojiWord):
-                        if self.process_word(r, model):
-                            total_imported_count += 1
-                        else:
-                            total_skipped_count += 1
+                    if duplicate:
+                        self.log_signal.emit(f'跳过重复单词:{r.target_id} {r.title}')
+                        total_skipped_count += 1
+                    elif isinstance(r, MojiWord):
+                        self.process_word(r, model)
+                        self.log_signal.emit(f'增加单词:{r.target_id} {r.title}')
+                        total_imported_count += 1
                     elif self.recursion:
                         moji_folders.append(r)
 
@@ -213,19 +219,9 @@ class WordLoader(QRunnable):
 
         self.log_signal.emit(f'执行结束,共增加{total_imported_count}个单词,跳过{total_skipped_count}个单词')
 
-    def process_word(self, r: MojiWord, model) -> bool:
+    def process_word(self, r: MojiWord, model):
         if common.no_anki_mode:
             common_log(f'获取到单词{r.title}')
-        else:
-            try:
-                from aqt import mw
-                note_dupes = mw.col.find_notes(f'deck:"{self.deck_name}" and target_id:{r.target_id}')
-            except Exception:
-                common_log('查询单词异常:' + json.dumps(r.__dict__, ensure_ascii=False))
-                raise
-            if note_dupes:
-                self.log_signal.emit(f'跳过重复单词:{r.target_id} {r.title}')
-                return False
 
         file_path = storage.get_file_path(r.target_id)
         if not storage.has_file(file_path):
@@ -260,8 +256,6 @@ class WordLoader(QRunnable):
             except Exception:
                 common_log('添加单词异常:' + json.dumps(r.__dict__, ensure_ascii=False))
                 raise
-        self.log_signal.emit(f'增加单词:{r.target_id} {r.title}')
-        return True
 
 
 def activate_import(moji_server):

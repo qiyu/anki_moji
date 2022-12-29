@@ -61,7 +61,7 @@ class MojiServer:
         self.last_requests = {}
 
     @retry(times=3)
-    def fetch_from_server(self, dir_id, page_index, moji_folder: Optional[MojiFolder] = None):
+    def fetch_from_server(self, dir_id, page_index):
         self.pre_request('fetch_from_server')
         r = requests.post(URL_COLLECTION, json={
             "fid": dir_id, "pageIndex": page_index, "count": 30, "sortType": 0,
@@ -81,12 +81,10 @@ class MojiServer:
             common_log(f'获取单词列表为空或单词列表不存在，dir_id：{dir_id}，page_index：{page_index}')
             return total_page, []
 
-        moji_words = self.parse_rows(rows, moji_folder)
-
-        return total_page, moji_words
+        return total_page, rows
 
     def parse_rows(self, rows, parent_moji_folder=None):
-        result:List[Union[MojiWord, MojiFolder]] = []
+        result: List[Union[MojiWord, MojiFolder]] = []
 
         word_ids = []
         sentence_ids = []
@@ -345,14 +343,33 @@ class MojiServer:
         url = self.get_tts_url(word)
         return self.get_file(url)
 
-    def fetch_all_from_server(self, dir_id: str, moji_folder: Optional[MojiFolder] = None) -> Iterable[MojiWord]:
+    def fetch_all_from_server(self, dir_id: str, duplicate_func,
+                              moji_folder: Optional[MojiFolder] = None) -> Iterable[MojiWord]:
         self.ensure_login()
         page_index = 1
         while True:
-            total_page, mojiwords = self.fetch_from_server(dir_id, page_index, moji_folder)
+            duplicate_rows = []
+            unique_rows = []
+
+            total_page, rows = self.fetch_from_server(dir_id, page_index)
+
+            for row in rows:
+                if duplicate_func(row['targetId']):
+                    duplicate_rows.append(row)
+                else:
+                    unique_rows.append(row)
+
+            mojiwords = self.parse_rows(unique_rows, moji_folder)
+
             for mojiword in mojiwords:
-                yield mojiword
+                # False表示没有重复
+                yield False, mojiword
+
+            # 返回重复数据只是为了展示
+            for row in duplicate_rows:
+                yield True, MojiWord(row['title'], row['targetId'], 0, '', '', '', '', '', '', '', moji_folder)
+
             page_index += 1
             # 当dir_id为空时total_page始终为0
-            if not mojiwords or (dir_id and page_index > total_page):
+            if not rows or (dir_id and page_index > total_page):
                 break

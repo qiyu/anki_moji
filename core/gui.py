@@ -16,7 +16,7 @@ from .common import common_log
 from .mojidict_server import MojiServer, MojiWord, MojiFolder
 
 
-class MainWindow(QDialog):
+class LoginWindow(QDialog):
     def __init__(self, moji_server, parent=None):
         QDialog.__init__(self, parent)
         self.moji_server = moji_server
@@ -29,7 +29,7 @@ class MainWindow(QDialog):
         self.show()
 
     def init_window(self):
-        self.setWindowTitle('从Moji导入')
+        self.setWindowTitle('登录moji web')
         login_label = QLabel('用户:')
         pass_label = QLabel('密码:')
         self.pass_field.setEchoMode(QLineEdit.EchoMode.Password)
@@ -318,7 +318,7 @@ def login_if_need(moji_server) -> bool:
     if moji_server.session_valid():
         return True
 
-    login_window = MainWindow(moji_server)
+    login_window = LoginWindow(moji_server)
     login_window.exec()
 
     return moji_server.session_valid()

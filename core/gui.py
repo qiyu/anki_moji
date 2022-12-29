@@ -174,14 +174,14 @@ class WordLoader(QRunnable):
             model = None
         else:
             from aqt import mw
-            model = utils.prepare_model(self.model_name, self.deck_name, mw.col)
+            model = anki.prepare_model(self.model_name, self.deck_name, mw.col)
             # 处理历史版本的noteType字段数据
-            utils.update_model_fields(model, mw.col)
+            anki.update_model_fields(model, mw.col)
             # 处理历史版本的模板数据
-            if utils.update_template(model, mw.col):
+            if anki.update_template(model, mw.col):
                 reply = QMessageBox.question(mw, '', '插件将会自动更新对应的卡片模板，是否继续？')
                 if reply == QMessageBox.Yes:
-                    utils.update_template(model, mw.col, force=True)
+                    anki.update_template(model, mw.col, force=True)
                 else:
                     return
 

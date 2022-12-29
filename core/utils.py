@@ -1,9 +1,6 @@
 import json
 import os
 
-from . import styles
-from .common import common_log
-
 
 def get_config():
     try:
@@ -53,89 +50,6 @@ def get_addon_dir():
     root = mw.pm.addonFolder()
     addon_dir = os.path.join(root, get_module_name())
     return addon_dir
-
-
-ALL_FIELDS = ['title', 'note', 'target_id', 'target_type', 'spell', 'accent', 'pron', 'excerpt', 'sound', 'link',
-              'part_of_speech', 'trans', 'examples']
-
-
-def prepare_model(model_name, deck_name, collection):
-    """
-    Returns a model for our future notes.
-    Creates a deck to keep them.
-    """
-    if is_model_exist(model_name, collection, ALL_FIELDS):
-        model = collection.models.by_name(model_name)
-    else:
-        model = create_new_model(model_name, collection)
-    model['did'] = collection.decks.id(deck_name)
-
-    collection.models.set_current(model)
-    collection.models.save(model)
-    return model
-
-
-def is_model_exist(model_name, collection, fields):
-    all_names = [x.name for x in collection.models.all_names_and_ids()]
-    name_exist = model_name in all_names
-    return name_exist
-
-
-def update_model_fields(model, collection):
-    names = list(map(lambda fld: fld['name'], model['flds']))
-
-    changed = False
-    for field_name in ALL_FIELDS:
-        if field_name not in names:
-            field = collection.models.new_field(field_name)
-            collection.models.add_field(model, field)
-            changed = True
-            common_log(f'增加noteType字段，field_name：{field_name}')
-
-    if changed:
-        collection.models.save(model)
-
-
-OLD_TEMPLATE_NAME = 'spell -> detail'
-TEMPLATE_NAME = 'AnkiToMoji v2.0.0'
-
-
-def update_template(model, collection, force=False) -> bool:
-    target = None
-    if len(model['tmpls']) == 1:
-        target = model['tmpls'][0]
-    else:
-        for tmpl in model['tmpls']:
-            if tmpl['name'] == OLD_TEMPLATE_NAME:
-                target = tmpl
-
-    if target is not None and target['name'] != TEMPLATE_NAME:
-        if not force:
-            # 返回True表示需要询问用户
-            return True
-        target['name'] = TEMPLATE_NAME
-        target['qfmt'] = styles.front_spell
-        target['afmt'] = styles.detail
-        model['css'] = styles.model_css_class
-
-        collection.models.save(model)
-        common_log(f'更新noteType模板信息，template_name：{TEMPLATE_NAME}')
-
-    return False
-
-
-def create_new_model(model_name, collection):
-    model = collection.models.new(model_name)
-    model['css'] = styles.model_css_class
-    for field in ALL_FIELDS:
-        collection.models.addField(model, collection.models.new_field(field))
-
-    template1 = collection.models.new_template(TEMPLATE_NAME)
-    template1['qfmt'] = styles.front_spell
-    template1['afmt'] = styles.detail
-    collection.models.addTemplate(model, template1)
-
-    return model
 
 
 def get_link(r):

@@ -25,11 +25,11 @@ def get_current_review_note():
         target_id = note['target_id']
         target_type = int(note['target_type'])
         title = note['title']
-    except Exception:
-        raise Exception('当前数据非从moji web中导入')
+    except KeyError:
+        raise Exception('当前数据不是从moji web中导入的，无法更新')
 
     if not target_id:
-        raise Exception('当前数据非从moji web中导入')
+        raise Exception('当前数据不是从moji web中导入的，无法更新')
 
     return note, target_id, target_type, title
 
@@ -37,12 +37,15 @@ def get_current_review_note():
 def refresh_current_note(note, word):
     from aqt import mw
 
-    if word.examples:
-        note['examples'] = word.examples
-    if word.trans:
-        note['trans'] = word.trans
-    if word.part_of_speech:
-        note['part_of_speech'] = word.part_of_speech
+    try:
+        if word.examples:
+            note['examples'] = word.examples
+        if word.trans:
+            note['trans'] = word.trans
+        if word.part_of_speech:
+            note['part_of_speech'] = word.part_of_speech
+    except KeyError:
+        raise Exception('当前笔记模板不是最新的，请先使用导入功能更新笔记模板')
 
     op_changes = mw.col.update_note(note)
     mw.reviewer.op_executed(op_changes, None, True)

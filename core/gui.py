@@ -286,7 +286,11 @@ def activate_update(window, moji_server):
         file_path = storage.get_file_path(target_id)
         storage.save_tts_file(file_path, tts_file_content)
 
-        anki.refresh_current_note(note, word)
+        try:
+            anki.refresh_current_note(note, word)
+        except Exception as e:
+            QMessageBox.critical(window, '', str(e))
+            return
 
         QMessageBox.information(window, '', f'更新[{target_id} {title}]成功')
 

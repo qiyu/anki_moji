@@ -2,7 +2,6 @@ import json
 import os
 
 from . import styles
-from .mojidict_server import MojiWord
 
 from .common import common_log
 
@@ -123,7 +122,7 @@ def create_new_model(model_name, collection):
     return model
 
 
-def get_link(r: MojiWord):
+def get_link(r):
     if r.target_type == 102:
         return "https://www.mojidict.com/details/" + r.target_id
     elif r.target_type == 103:

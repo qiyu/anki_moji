@@ -3,6 +3,8 @@ import re
 from anki.collection import SearchNode
 from anki.template import TemplateRenderContext
 
+from . import common
+
 
 def on_field_filter(text, field, filter_, context: TemplateRenderContext):
     if filter_ == 'MojiToAnki_link':
@@ -52,6 +54,9 @@ def refresh_current_note(note, word):
 
 
 def check_duplicate(deck_name, target_id):
+    if common.no_anki_mode:
+        return False
+
     from aqt import mw
     note_dupes = mw.col.find_notes(
         mw.col.build_search_string(target_id, SearchNode(field_name='target_id', deck=deck_name))

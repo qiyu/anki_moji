@@ -207,9 +207,14 @@ class WordLoader(QRunnable):
                         self.log_signal.emit(f'跳过重复单词:{r.target_id} {r.title}')
                         total_skipped_count += 1
                     elif isinstance(r, MojiWord):
-                        self.process_word(r, model)
-                        self.log_signal.emit(f'增加单词:{r.target_id} {r.title}')
-                        total_imported_count += 1
+                        # 为了防止出现anki web返回的一个列表中包含重复数据的情况，这里再次检查重复数据
+                        if anki.check_duplicate(self.deck_name, r.target_id):
+                            self.log_signal.emit(f'跳过重复单词:{r.target_id} {r.title}')
+                            total_skipped_count += 1
+                        else:
+                            self.process_word(r, model)
+                            self.log_signal.emit(f'增加单词:{r.target_id} {r.title}')
+                            total_imported_count += 1
                     elif self.recursion:
                         moji_folders.append(r)
 

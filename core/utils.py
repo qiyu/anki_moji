@@ -2,7 +2,6 @@ import json
 import os
 
 from . import styles
-
 from .common import common_log
 
 
@@ -73,11 +72,6 @@ def prepare_model(model_name, deck_name, collection):
 
     collection.models.set_current(model)
     collection.models.save(model)
-
-    # 处理历史版本的noteType字段数据
-    update_model_fields(model, collection)
-    # 处理历史版本的模板数据
-    update_template(model, collection)
     return model
 
 
@@ -103,10 +97,10 @@ def update_model_fields(model, collection):
 
 
 OLD_TEMPLATE_NAME = 'spell -> detail'
-TEMPLATE_NAME = 'spell -> detail v2.0.0'
+TEMPLATE_NAME = 'AnkiToMoji v2.0.0'
 
 
-def update_template(model, collection):
+def update_template(model, collection, force=False) -> bool:
     target = None
     if len(model['tmpls']) == 1:
         target = model['tmpls'][0]
@@ -116,6 +110,9 @@ def update_template(model, collection):
                 target = tmpl
 
     if target is not None and target['name'] != TEMPLATE_NAME:
+        if not force:
+            # 返回True表示需要询问用户
+            return True
         target['name'] = TEMPLATE_NAME
         target['qfmt'] = styles.front_spell
         target['afmt'] = styles.detail
@@ -123,6 +120,8 @@ def update_template(model, collection):
 
         collection.models.save(model)
         common_log(f'更新noteType模板信息，template_name：{TEMPLATE_NAME}')
+
+    return False
 
 
 def create_new_model(model_name, collection):

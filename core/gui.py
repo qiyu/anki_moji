@@ -17,10 +17,9 @@ from .mojidict_server import MojiServer, MojiWord, MojiFolder
 
 
 class MainWindow(QDialog):
-    def __init__(self, moji_server, after_login, parent=None):
+    def __init__(self, moji_server, parent=None):
         QDialog.__init__(self, parent)
         self.moji_server = moji_server
-        self.after_login = after_login
 
         self.login_field = QLineEdit()
         self.pass_field = QLineEdit()
@@ -59,8 +58,6 @@ class MainWindow(QDialog):
             return
 
         self.close()
-
-        self.after_login()
 
 
 class ImportWindow(QDialog):
@@ -178,6 +175,15 @@ class WordLoader(QRunnable):
         else:
             from aqt import mw
             model = utils.prepare_model(self.model_name, self.deck_name, mw.col)
+            # 处理历史版本的noteType字段数据
+            utils.update_model_fields(model, mw.col)
+            # 处理历史版本的模板数据
+            if utils.update_template(model, mw.col):
+                reply = QMessageBox.question(mw, '', '插件将会自动更新对应的卡片模板，是否继续？')
+                if reply == QMessageBox.Yes:
+                    utils.update_template(model, mw.col, force=True)
+                else:
+                    return
 
         self.log_signal.emit('')
 
@@ -264,42 +270,44 @@ class WordLoader(QRunnable):
 
 
 def activate_import(moji_server):
-    def after_login():
-        import_window = ImportWindow(moji_server)
-        import_window.exec()
+    if not login_if_need(moji_server):
+        return
 
-    login_if_need_and_exec(after_login, moji_server)
+    import_window = ImportWindow(moji_server)
+    import_window.exec()
 
 
 def activate_update(window, moji_server):
-    def after_login():
-        try:
-            note, target_id, target_type, title = anki.get_current_review_note()
-        except Exception as e:
-            QMessageBox.critical(window, '', str(e))
-            return
+    if not login_if_need(moji_server):
+        return
 
-        word = moji_server.fetch_single_word(target_id, target_type, title)
+    try:
+        note, target_id, target_type, title = anki.get_current_review_note()
+    except Exception as e:
+        QMessageBox.critical(window, '', str(e))
+        return
 
-        # 更新发音文件
-        tts_file_content = moji_server.get_tts_url_and_download(word)
-        file_path = storage.get_file_path(target_id)
-        storage.save_tts_file(file_path, tts_file_content)
+    word = moji_server.fetch_single_word(target_id, target_type, title)
 
-        try:
-            anki.refresh_current_note(note, word)
-        except Exception as e:
-            QMessageBox.critical(window, '', str(e))
-            return
+    # 更新发音文件
+    tts_file_content = moji_server.get_tts_url_and_download(word)
+    file_path = storage.get_file_path(target_id)
+    storage.save_tts_file(file_path, tts_file_content)
 
-        QMessageBox.information(window, '', f'更新[{target_id} {title}]成功')
+    try:
+        anki.refresh_current_note(note, word)
+    except Exception as e:
+        QMessageBox.critical(window, '', str(e))
+        return
 
-    login_if_need_and_exec(after_login, moji_server)
+    QMessageBox.information(window, '', f'更新[{target_id} {title}]成功')
 
 
-def login_if_need_and_exec(after_login, moji_server):
-    if not moji_server.session_valid():
-        login_window = MainWindow(moji_server, after_login)
-        login_window.exec()
-    else:
-        after_login()
+def login_if_need(moji_server) -> bool:
+    if moji_server.session_valid():
+        return True
+
+    login_window = MainWindow(moji_server)
+    login_window.exec()
+
+    return moji_server.session_valid()

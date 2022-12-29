@@ -92,11 +92,14 @@ TEMPLATE_NAME = 'spell -> detail v2.0.0'
 
 def update_template(model, collection):
     target = None
-    for tmpl in model['tmpls']:
-        if tmpl['name'] == OLD_TEMPLATE_NAME:
-            target = tmpl
+    if len(model['tmpls']) == 1:
+        target = model['tmpls'][0]
+    else:
+        for tmpl in model['tmpls']:
+            if tmpl['name'] == OLD_TEMPLATE_NAME:
+                target = tmpl
 
-    if target is not None:
+    if target is not None and target['name'] != TEMPLATE_NAME:
         target['name'] = TEMPLATE_NAME
         target['qfmt'] = styles.front_spell
         target['afmt'] = styles.detail

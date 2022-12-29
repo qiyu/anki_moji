@@ -91,12 +91,15 @@ def is_model_exist(model_name, collection, fields):
     return name_exist
 
 
-def update_model_fields(model, collection):
+def update_model_fields(model, collection, force=False) -> bool:
     names = list(map(lambda fld: fld['name'], model['flds']))
 
     changed = False
     for field_name in ALL_FIELDS:
         if field_name not in names:
+            if not force:
+                # 返回True表示需要询问用户
+                return True
             field = collection.models.new_field(field_name)
             collection.models.add_field(model, field)
             changed = True
@@ -104,6 +107,7 @@ def update_model_fields(model, collection):
 
     if changed:
         collection.models.save(model)
+    return False
 
 
 OLD_TEMPLATE_NAME = 'spell -> detail'

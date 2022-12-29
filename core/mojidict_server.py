@@ -332,7 +332,7 @@ class MojiServer:
     def pre_request(self, request_key):
         # 防止因为请求速度过快，影响moji web服务器的正确响应
         last_request = self.last_requests.get(request_key)
-        min_interval = 1
+        min_interval = 1.5
         if last_request is not None and datetime.datetime.now().timestamp() - last_request < min_interval:
             time.sleep(min_interval)
 

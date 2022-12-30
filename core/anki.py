@@ -3,7 +3,7 @@ import re
 from anki.collection import SearchNode
 from anki.template import TemplateRenderContext
 
-from . import common, styles
+from . import common, styles, utils
 from .common import common_log
 
 
@@ -47,6 +47,7 @@ def refresh_current_note(note, word):
             note['trans'] = word.trans
         if word.part_of_speech:
             note['part_of_speech'] = word.part_of_speech
+        note['link'] = utils.get_link(word)
     except KeyError:
         raise Exception('当前笔记模板不是最新的，请先使用导入功能更新笔记模板')
 

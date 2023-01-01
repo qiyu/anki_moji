@@ -55,7 +55,7 @@ model_css_class = '''@font-face {
     color: #3d454c;
     font-size: 36px;
     font-weight: 600;
-    font-family: HiraMinProN-W6,HiraMinProN;
+    font-family: HiraMinProN-W6,HiraMinProN,'Hiragino Kaku Gothic Pro', Meiryo, MS Gothic, Tahoma, Arial, PingFang SC, '黑体';
 }
 
 .pron-and-accent {

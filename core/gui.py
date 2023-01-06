@@ -351,6 +351,7 @@ class WordLoader(QRunnable):
                 raise
 
     def update_note(self, note, word, update_keys):
+        from aqt import mw
         for key in update_keys:
             if key == 'note':
                 # 'note' not implemented
@@ -364,6 +365,7 @@ class WordLoader(QRunnable):
                 storage.save_tts_file(file_path, content)
             else:
                 note[key] = getattr(word, key)
+        mw.col.update_note(note)
 
 
 def activate_import(moji_server):

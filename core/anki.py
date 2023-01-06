@@ -67,7 +67,8 @@ def check_duplicate(deck_name, target_id):
     note_dupes = mw.col.find_notes(
         mw.col.build_search_string(target_id, SearchNode(field_name='target_id', deck=deck_name))
     )
-    return len(note_dupes) > 0
+    # 直接返回note数组便于可能的update操作，同时可作为bool与之前的定义兼容
+    return [mw.col.get_note(note_id) for note_id in note_dupes]
 
 
 ALL_FIELDS = ['title', 'note', 'target_id', 'target_type', 'spell', 'accent', 'pron', 'excerpt', 'sound', 'link',

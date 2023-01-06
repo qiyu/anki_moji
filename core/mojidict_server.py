@@ -343,31 +343,17 @@ class MojiServer:
         url = self.get_tts_url(word)
         return self.get_file(url)
 
-    def fetch_all_from_server(self, dir_id: str, duplicate_func,
+    def fetch_all_from_server(self, dir_id: str, 
                               moji_folder: Optional[MojiFolder] = None) -> Iterable[MojiWord]:
         self.ensure_login()
         page_index = 1
         while True:
-            duplicate_rows = []
-            unique_rows = []
-
             total_page, rows = self.fetch_from_server(dir_id, page_index)
+            mojiwords = self.parse_rows(rows, moji_folder)
 
-            for row in rows:
-                if duplicate_func(row['targetId']):
-                    duplicate_rows.append(row)
-                else:
-                    unique_rows.append(row)
-
-            mojiwords = self.parse_rows(unique_rows, moji_folder)
-
+            # 这里查重没意义，外层有检查
             for mojiword in mojiwords:
-                # False表示没有重复
-                yield False, mojiword
-
-            # 返回重复数据只是为了展示
-            for row in duplicate_rows:
-                yield True, MojiWord(row['title'], row['targetId'], 0, '', '', '', '', '', '', '', moji_folder)
+                yield mojiword
 
             page_index += 1
             # 当dir_id为空时total_page始终为0

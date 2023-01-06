@@ -9,7 +9,7 @@ from collections import deque
 from PyQt5 import QtGui
 from PyQt5.QtCore import QThreadPool, pyqtSignal, pyqtSlot, QRunnable
 from PyQt5.QtWidgets import QDialog, QLabel, QLineEdit, QPushButton, QFormLayout, QVBoxLayout, QHBoxLayout, \
-    QPlainTextEdit, QMessageBox, QCheckBox
+    QGridLayout, QPlainTextEdit, QMessageBox, QCheckBox, QGroupBox
 
 from . import utils, storage, common, anki
 from .common import common_log
@@ -73,7 +73,18 @@ class ImportWindow(QDialog):
         self.deck_name_field = QLineEdit()
         self.dir_id_field = QLineEdit()
         self.log_text = QPlainTextEdit()
-        self.recursion_check_box = QCheckBox()
+        self.recursion_check_box = QCheckBox('同时导入一级子目录')
+        self.update_check_box = QGroupBox('更新已有单词')
+        self.update_spell_check_box = QCheckBox('更新拼写')
+        self.update_accent_check_box = QCheckBox('更新声调')
+        self.update_pron_check_box = QCheckBox('更新假名')
+        self.update_exerpt_check_box = QCheckBox('更新摘要')
+        self.update_sound_check_box = QCheckBox('更新发音')
+        self.update_note_check_box = QCheckBox('更新笔记')
+        self.update_pos_check_box = QCheckBox('更新词性')
+        self.update_trans_check_box = QCheckBox('更新释义')
+        self.update_examples_check_box = QCheckBox('更新例句')
+        self.update_link_check_box = QCheckBox('更新链接')
 
         self.thread_pool = QThreadPool(self)
         self.thread_pool.setMaxThreadCount(1)
@@ -92,21 +103,46 @@ class ImportWindow(QDialog):
         model_name_label = QLabel('笔记模板名称（Note）:')
         deck_name_label = QLabel('牌组名称（Deck）:')
         dir_id_label = QLabel('目录ID:')
-        recursion_label = QLabel('同时导入1级子目录:')
 
         config = utils.get_config()
         self.model_name_field.setText(config.get('model_name') or 'Moji')
         self.deck_name_field.setText(config.get('deck_name') or 'Moji')
         self.dir_id_field.setText(config.get('dir_id') or '')
         self.recursion_check_box.setChecked(config.get('recursion') or False)
+        self.update_check_box.setCheckable(True)
+        # 更新已有单词不是常用功能，故默认不勾选，无需存于config
+        self.update_check_box.setChecked(False)
+        self.update_spell_check_box.setChecked(False)
+        self.update_accent_check_box.setChecked(False)
+        self.update_pron_check_box.setChecked(False)
+        self.update_exerpt_check_box.setChecked(False)
+        self.update_sound_check_box.setChecked(False)
+        self.update_note_check_box.setChecked(False)
+        self.update_pos_check_box.setChecked(False)
+        self.update_trans_check_box.setChecked(False)
+        self.update_examples_check_box.setChecked(False)
+        self.update_link_check_box.setChecked(False)
         import_form = QFormLayout()
         import_form.addRow(model_name_label, self.model_name_field)
         import_form.addRow(deck_name_label, self.deck_name_field)
         import_form.addRow(dir_id_label, self.dir_id_field)
-        import_form.addRow(recursion_label, self.recursion_check_box)
+        grid = QGridLayout()
+        grid.addWidget(self.update_spell_check_box, 0, 0)
+        grid.addWidget(self.update_accent_check_box, 0, 1)
+        grid.addWidget(self.update_pron_check_box, 0, 2)
+        grid.addWidget(self.update_exerpt_check_box, 0, 3)
+        grid.addWidget(self.update_sound_check_box, 0, 4)
+        grid.addWidget(self.update_note_check_box, 1, 0)
+        grid.addWidget(self.update_pos_check_box, 1, 1)
+        grid.addWidget(self.update_trans_check_box, 1, 2)
+        grid.addWidget(self.update_examples_check_box, 1, 3)
+        grid.addWidget(self.update_link_check_box, 1, 4)
+        self.update_check_box.setLayout(grid)
 
         main_layout = QVBoxLayout()
         main_layout.addLayout(import_form)
+        main_layout.addWidget(self.recursion_check_box)
+        main_layout.addWidget(self.update_check_box)
         main_layout.addWidget(self.import_button)
         main_layout.addWidget(self.log_text)
         self.setLayout(main_layout)
@@ -127,6 +163,28 @@ class ImportWindow(QDialog):
         deck_name = self.deck_name_field.text().strip()
         dir_id = self.dir_id_field.text().strip()
         recursion = self.recursion_check_box.isChecked()
+        update_existing = set()
+        if self.update_check_box.isChecked():
+            if self.update_spell_check_box.isChecked():
+                update_existing.add('spell')
+            if self.update_accent_check_box.isChecked():
+                update_existing.add('accent')
+            if self.update_pron_check_box.isChecked():
+                update_existing.add('pron')
+            if self.update_exerpt_check_box.isChecked():
+                update_existing.add('excerpt')
+            if self.update_sound_check_box.isChecked():
+                update_existing.add('sound')
+            if self.update_note_check_box.isChecked():
+                update_existing.add('note')
+            if self.update_pos_check_box.isChecked():
+                update_existing.add('part_of_speech')
+            if self.update_trans_check_box.isChecked():
+                update_existing.add('trans')
+            if self.update_examples_check_box.isChecked():
+                update_existing.add('examples')
+            if self.update_link_check_box.isChecked():
+                update_existing.add('link')
         if "\\" in deck_name or '"' in deck_name:
             QMessageBox.critical(self, '', 'Deck名称中不能包含"和\\')
             return
@@ -156,8 +214,18 @@ class ImportWindow(QDialog):
                     else:
                         return
 
+                    QMessageBox.question(self, '', '为了已有单词的复习体验，建议更新已有单词的翻译、例句、链接字段。' + \
+                                            '是否更新目前选中的moji目录ID中的本地已有卡片？（之后仍可手动勾选更新）')
+                    if reply == QMessageBox.StandardButton.Yes:
+                        self.update_trans_check_box.setChecked(True)
+                        self.update_examples_check_box.setChecked(True)
+                        self.update_link_check_box.setChecked(True)
+                        update_existing.add('trans')
+                        update_existing.add('examples')
+                        update_existing.add('link')
+
             self.word_loader = WordLoader(self.moji_server, self.busy_signal, self.log_signal, model,
-                                          model_name, deck_name, dir_id, recursion)
+                                          model_name, deck_name, dir_id, recursion, update_existing)
             self.thread_pool.start(self.word_loader)
         else:
             QMessageBox.critical(self, '', 'Deck名称和Note名称必填')
@@ -171,7 +239,7 @@ class ImportWindow(QDialog):
 
 class WordLoader(QRunnable):
     def __init__(self, moji_server: MojiServer, busy_signal, log_signal, model, model_name, deck_name, dir_id,
-                 recursion):
+                 recursion, update_existing):
         super().__init__()
         self.moji_server = moji_server
         self.busy_signal = busy_signal
@@ -182,6 +250,7 @@ class WordLoader(QRunnable):
         self.dir_id = dir_id
         self.interrupted = False
         self.recursion = recursion
+        self.update_existing = update_existing
 
     def run(self) -> None:
         self.busy_signal.emit(True)
@@ -199,6 +268,7 @@ class WordLoader(QRunnable):
         self.log_signal.emit('')
 
         total_imported_count = 0
+        total_updated_count = 0
         total_skipped_count = 0
 
         moji_folders: typing.Deque[MojiFolder] = deque()
@@ -211,23 +281,24 @@ class WordLoader(QRunnable):
                     self.log_signal.emit('开始处理目录：' + current_folder.title)
                     dir_id = current_folder.target_id
 
-                for duplicate, r in self.moji_server.fetch_all_from_server(
-                        dir_id,
-                        lambda target_id: anki.check_duplicate(self.deck_name, target_id),
-                        current_folder):
+                for r in self.moji_server.fetch_all_from_server(dir_id, current_folder):
 
                     if self.interrupted:
                         common_log('导入单词终止')
                         self.interrupted = False
                         return
-                    if duplicate:
-                        self.log_signal.emit(f'跳过重复单词:{r.target_id} {r.title}')
-                        total_skipped_count += 1
                     elif isinstance(r, MojiWord):
-                        # 为了防止出现anki web返回的一个列表中包含重复数据的情况，这里再次检查重复数据
-                        if anki.check_duplicate(self.deck_name, r.target_id):
-                            self.log_signal.emit(f'跳过重复单词:{r.target_id} {r.title}')
-                            total_skipped_count += 1
+                        duplicates = anki.check_duplicate(self.deck_name, r.target_id)
+                        if duplicates:
+                            if not self.update_existing:
+                                self.log_signal.emit(f'跳过重复单词:{r.target_id} {r.title}')
+                                total_skipped_count += 1
+                            else:
+                                for note in duplicates:
+                                    self.update_note(note, r, self.update_existing)
+                                self.log_signal.emit(f'更新已有单词:{r.target_id} {r.title}' 
+                                                     + (f' (x{len(duplicates)})' if len(duplicates) > 1 else ''))
+                                total_updated_count += len(duplicates)
                         else:
                             self.process_word(r, model)
                             self.log_signal.emit(f'增加单词:{r.target_id} {r.title}')
@@ -239,7 +310,7 @@ class WordLoader(QRunnable):
                 break
             current_folder = moji_folders.popleft()
 
-        self.log_signal.emit(f'执行结束,共增加{total_imported_count}个单词,跳过{total_skipped_count}个单词')
+        self.log_signal.emit(f'执行结束,共增加{total_imported_count}个单词,更新{total_updated_count}个单词,跳过{total_skipped_count}个单词')
 
     def process_word(self, r: MojiWord, model):
         if common.no_anki_mode:
@@ -278,6 +349,21 @@ class WordLoader(QRunnable):
             except Exception:
                 common_log('添加单词异常:' + json.dumps(r.__dict__, ensure_ascii=False))
                 raise
+
+    def update_note(self, note, word, update_keys):
+        for key in update_keys:
+            if key == 'note':
+                # 'note' not implemented
+                pass
+            elif key == 'link':
+                note[key] = utils.get_link(word)
+            elif key == 'sound':
+                note[key] = f'[sound:moji_{word.target_id}.mp3]'
+                file_path = storage.get_file_path(word.target_id)
+                content = self.moji_server.get_tts_url_and_download(word)
+                storage.save_tts_file(file_path, content)
+            else:
+                note[key] = getattr(word, key)
 
 
 def activate_import(moji_server):

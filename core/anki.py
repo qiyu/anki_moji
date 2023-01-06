@@ -166,6 +166,6 @@ def _prepare_media_files(file):
     from aqt import mw
     target_path = os.path.join(mw.col.media.dir(), file)
     if not os.path.lexists(target_path):
-        source_path = os.path.join(mw.pm.addonFolder(), 'assets', file)
+        source_path = os.path.join(mw.pm.addonFolder(), '131403862', 'assets', file)
         shutil.copyfile(source_path, target_path)
         common_log(f'复制文件：{file}')

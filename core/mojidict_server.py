@@ -163,13 +163,6 @@ class MojiServer:
 
         return result
 
-    # 获取单个单词详情，但pron、accent、spell、excerpt的值始终为空，且title字段的值不会更新
-    def fetch_single_word(self, target_id, target_type, title):
-        moji_words = self.parse_rows([{'targetId': target_id, 'targetType': target_type, 'title': title, 'target': {}}])
-        if len(moji_words) != 1:
-            return None
-        return moji_words[0]
-
     # 请求多个单词数据
     @retry(times=3)
     def get_words_data(self, target_ids: list):

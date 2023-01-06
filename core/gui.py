@@ -374,31 +374,6 @@ def activate_import(moji_server):
     import_window.exec()
 
 
-def activate_update(window, moji_server):
-    if not login_if_need(moji_server):
-        return
-
-    try:
-        note, target_id, target_type, title = anki.get_current_review_note()
-    except Exception as e:
-        QMessageBox.critical(window, '', str(e))
-        return
-
-    word = moji_server.fetch_single_word(target_id, target_type, title)
-
-    # 更新发音文件
-    tts_file_content = moji_server.get_tts_url_and_download(word)
-    file_path = storage.get_file_path(target_id)
-    storage.save_tts_file(file_path, tts_file_content)
-
-    try:
-        anki.refresh_current_note(note, word)
-    except Exception as e:
-        QMessageBox.critical(window, '', str(e))
-        return
-
-    QMessageBox.information(window, '', f'更新[{target_id} {title}]成功')
-
 
 def login_if_need(moji_server) -> bool:
     if moji_server.session_valid():

@@ -26,9 +26,7 @@ def check_duplicate(deck_name, target_id):
         return False
 
     from aqt import mw
-    note_dupes = mw.col.find_notes(
-        mw.col.build_search_string(target_id, SearchNode(field_name='target_id', deck=deck_name))
-    )
+    note_dupes = mw.col.find_notes(f'deck:"{deck_name}" and target_id:"{target_id}"')
     # 直接返回note数组便于可能的update操作，同时可作为bool与之前的定义兼容
     return [mw.col.get_note(note_id) for note_id in note_dupes]
 

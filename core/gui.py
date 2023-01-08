@@ -214,12 +214,14 @@ class ImportWindow(QDialog):
                     else:
                         return
 
-                    QMessageBox.question(self, '', '为了已有单词的复习体验，建议更新已有单词的翻译、例句、链接字段。' + \
+                    QMessageBox.question(self, '', '为了已有单词的复习体验，建议更新已有单词的词性、翻译、例句、链接字段。' + \
                                             '是否更新目前选中的moji目录ID中的本地已有卡片？（之后仍可手动勾选更新）')
                     if reply == QMessageBox.StandardButton.Yes:
+                        self.update_pos_check_box.setChecked(True)
                         self.update_trans_check_box.setChecked(True)
                         self.update_examples_check_box.setChecked(True)
                         self.update_link_check_box.setChecked(True)
+                        update_existing.add('part_of_speech')
                         update_existing.add('trans')
                         update_existing.add('examples')
                         update_existing.add('link')

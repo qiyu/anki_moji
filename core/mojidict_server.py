@@ -20,6 +20,7 @@ URL_EXAMPLE = 'https://api.mojidict.com/parse/functions/nlt-fetchExample'
 URL_SENTENCES = 'https://api.mojidict.com/parse/functions/nlt-fetchManySentences'
 URL_TTS = 'https://api.mojidict.com/parse/functions/tts-fetch'
 URL_LOGIN = 'https://api.mojidict.com/parse/login'
+URL_USER_NOTE = 'https://api.mojidict.com/parse/functions/getNote'
 
 CLIENT_VERSION = 'js3.4.1'
 APPLICATION_ID = 'E62VyFVLMiW7kvbtVq3p'
@@ -268,6 +269,25 @@ class MojiServer:
         for data in data_list:
             sentences[data['objectId']] = data
         return sentences
+
+    @retry(times=3)
+    def get_user_note(self, word: MojiWord):
+        self.pre_request('note')
+        r = requests.post(URL_USER_NOTE, json={
+            'g_os': 'PCWeb',
+            "tarId": word.target_id, 
+            "tarType": word.target_type,
+            "_SessionToken": self.session_token,
+            "_ApplicationId": APPLICATION_ID,
+            "_InstallationId": INSTALLATION_ID,
+            "_ClientVersion": CLIENT_VERSION
+        }, headers=headers, timeout=(5, 5))
+        self.post_request('note')
+
+        if r.status_code != 200:
+            raise Exception(f'获取用户笔记异常, {word.target_id}')
+        note = utils.get((r.json()), 'result.result.content')
+        return note if note is not None else ''
 
     @retry(times=3)
     def get_tts_url(self, word: MojiWord):

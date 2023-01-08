@@ -214,13 +214,16 @@ class ImportWindow(QDialog):
                     else:
                         return
 
-                    QMessageBox.question(self, '', '为了已有单词的复习体验，建议更新已有单词的词性、翻译、例句、链接字段。' + \
-                                            '是否更新目前选中的moji目录ID中的本地已有卡片？（之后仍可手动勾选更新）')
+                    QMessageBox.question(self, '', '为了利用新模板，建议更新本地已有单词的“笔记”、“词性”、“翻译”、“例句”、“链接”字段。' + \
+                                            '现在是否更新目前选中的moji目录中的本地已有单词？' + \
+                                         '（之后仍可手动勾选更新，“笔记”字段更新比其他字段稍慢，若赶时间或不需要可以不选）')
                     if reply == QMessageBox.StandardButton.Yes:
+                        self.update_note_check_box.setChecked(True)
                         self.update_pos_check_box.setChecked(True)
                         self.update_trans_check_box.setChecked(True)
                         self.update_examples_check_box.setChecked(True)
                         self.update_link_check_box.setChecked(True)
+                        update_existing.add('note')
                         update_existing.add('part_of_speech')
                         update_existing.add('trans')
                         update_existing.add('examples')
@@ -328,6 +331,8 @@ class WordLoader(QRunnable):
                 raise
             storage.save_tts_file(file_path, content)
 
+        user_note = self.moji_server.get_user_note(r)
+
         if common.no_anki_mode:
             common_log(f"虚拟保存note")
         else:
@@ -343,6 +348,7 @@ class WordLoader(QRunnable):
             note['excerpt'] = r.excerpt
             note['accent'] = r.accent
             note['title'] = r.title
+            note['note'] = user_note
             note['part_of_speech'] = r.part_of_speech
             note['trans'] = r.trans
             note['examples'] = r.examples
@@ -356,8 +362,7 @@ class WordLoader(QRunnable):
         from aqt import mw
         for key in update_keys:
             if key == 'note':
-                # 'note' not implemented
-                pass
+                note[key] = self.moji_server.get_user_note(word)
             elif key == 'link':
                 note[key] = utils.get_link(word)
             elif key == 'sound':

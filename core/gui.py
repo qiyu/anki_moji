@@ -74,20 +74,31 @@ class ImportWindow(QDialog):
         self.deck_name_field = QLineEdit()
         self.moji_box = QGroupBox('Moji收藏夹选择')
         self.dir_id_field = QLineEdit()
+        self.dir_id_field.setMinimumWidth(200)
         self.dir_id_field.setPlaceholderText("留空对应收藏夹根目录")
         self.log_text = QPlainTextEdit()
         self.recursion_check_box = QCheckBox('同时导入一级子目录')
-        self.update_box = QGroupBox('更新已有单词')
+        self.update_box = QGroupBox('遇到已导入单词时，执行更新')
         self.update_spell_check_box = QCheckBox('更新拼写')
+        self.update_spell_check_box.setToolTip('对应笔记模板里的spell字段')
         self.update_accent_check_box = QCheckBox('更新声调')
+        self.update_accent_check_box.setToolTip('对应笔记模板里的accent字段')
         self.update_pron_check_box = QCheckBox('更新假名')
+        self.update_pron_check_box.setToolTip('对应笔记模板里的pron字段')
         self.update_exerpt_check_box = QCheckBox('更新摘要')
+        self.update_exerpt_check_box.setToolTip('对应笔记模板里的exerpt字段')
         self.update_sound_check_box = QCheckBox('更新发音')
+        self.update_sound_check_box.setToolTip('对应笔记模板里的sound字段和发音文件')
         self.update_note_check_box = QCheckBox('更新笔记')
+        self.update_note_check_box.setToolTip('对应笔记模板里的note字段')
         self.update_pos_check_box = QCheckBox('更新词性')
+        self.update_pos_check_box.setToolTip('对应笔记模板里的pos字段')
         self.update_trans_check_box = QCheckBox('更新释义')
+        self.update_trans_check_box.setToolTip('对应笔记模板里的trans字段')
         self.update_examples_check_box = QCheckBox('更新例句')
+        self.update_examples_check_box.setToolTip('对应笔记模板里的examples字段')
         self.update_link_check_box = QCheckBox('更新链接')
+        self.update_link_check_box.setToolTip('对应笔记模板里的link字段')
 
         self.thread_pool = QThreadPool(self)
         self.thread_pool.setMaxThreadCount(1)
@@ -307,7 +318,7 @@ class WordLoader(QRunnable):
                             else:
                                 for note in duplicates:
                                     self.update_note(note, r, self.update_existing)
-                                self.log_signal.emit(f'更新已有单词:{r.target_id} {r.title}' 
+                                self.log_signal.emit(f'更新已有单词:{r.target_id} {r.title}'
                                                      + (f' (x{len(duplicates)})' if len(duplicates) > 1 else ''))
                                 total_updated_count += len(duplicates)
                         else:

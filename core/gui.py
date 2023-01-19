@@ -231,9 +231,9 @@ class ImportWindow(QDialog):
                     else:
                         return
 
-                    reply = QMessageBox.question(self, '', '为了利用新模板，建议更新本地已有单词的“笔记”、“词性”、“翻译”、“例句”、“链接”字段。' 
-                                                 '现在是否更新目前选中的moji目录中的本地已有单词？'
-                                                 '（之后仍可手动勾选更新，“笔记”字段更新比其他字段稍慢，若赶时间或不需要可以不选）')
+                    reply = QMessageBox.question(self, '', '为了利用新模板，建议更新本地已有单词的“笔记”、“词性”、“翻译”、“例句”、“链接”字段。'
+                                                           '现在是否更新目前选中的moji目录中的本地已有单词？'
+                                                           '（之后仍可手动勾选更新，“笔记”字段更新比其他字段稍慢，若赶时间或不需要可以不选）')
                     if reply == QMessageBox.StandardButton.Yes:
                         self.update_note_check_box.setChecked(True)
                         self.update_pos_check_box.setChecked(True)
@@ -284,6 +284,9 @@ class WordLoader(QRunnable):
     def interrupt(self):
         self.interrupted = True
 
+    def should_skip(self, target_id, target_type):
+        return not self.update_existing and anki.check_duplicate(self.deck_name, target_id)
+
     def save_words(self):
         model = self.model
 
@@ -302,13 +305,20 @@ class WordLoader(QRunnable):
                 if current_folder:
                     self.log_signal.emit('开始处理目录：' + current_folder.title)
                     dir_id = current_folder.target_id
-
-                for r in self.moji_server.fetch_all_from_server(dir_id, current_folder):
-
+                for item in self.moji_server.fetch_all_from_server(
+                        dir_id,
+                        lambda target_id, target_type: self.should_skip(target_id, target_type),
+                        current_folder):
+                    r = item.result_value
                     if self.interrupted:
                         common_log('导入单词终止')
                         self.interrupted = False
                         return
+                    elif item.invalid:
+                        common_log(f'item {item.title}-{item.target_id}-{item.target_type} invalid')
+                    elif item.skipped:
+                        self.log_signal.emit(f'跳过重复单词:{item.target_id} {item.title}')
+                        total_skipped_count += 1
                     elif isinstance(r, MojiWord):
                         duplicates = anki.check_duplicate(self.deck_name, r.target_id)
                         if duplicates:
@@ -325,7 +335,7 @@ class WordLoader(QRunnable):
                             self.process_word(r, model)
                             self.log_signal.emit(f'增加单词:{r.target_id} {r.title}')
                             total_imported_count += 1
-                    elif self.recursion:
+                    elif isinstance(r, MojiFolder) and self.recursion:
                         moji_folders.append(r)
 
             if not moji_folders:
@@ -398,7 +408,6 @@ def activate_import(moji_server):
 
     import_window = ImportWindow(moji_server)
     import_window.exec()
-
 
 
 def login_if_need(moji_server) -> bool:

@@ -8,7 +8,8 @@ import datetime
 import json
 import time
 from dataclasses import dataclass
-from typing import Iterable, Any, Union, Optional, List
+from typing import Iterable, Union, Optional, List
+
 import requests
 
 from . import utils
@@ -48,8 +49,27 @@ class MojiWord:
 class MojiFolder:
     title: str
     target_id: str
-    target_type: str
+    target_type: int
     parent: Optional[MojiFolder]
+
+
+class MojiCollectionItem:
+
+    def __init__(self, title: str, target_id: str, target_type: int,
+                 skipped: bool = False,
+                 ):
+        """
+        :param title:
+        :param target_id:
+        :param target_type:
+        :param skipped: 表示应该跳过处理，比如已导入过的单词
+        """
+        self.title = title
+        self.target_id = target_id
+        self.target_type = target_type
+        self.skipped = skipped
+        self.invalid: bool = False
+        self.result_value: Optional[Union[MojiWord, MojiFolder]] = None
 
 
 class MojiServer:
@@ -84,14 +104,14 @@ class MojiServer:
 
         return total_page, rows
 
-    def parse_rows(self, rows, parent_moji_folder=None):
-        result: List[Union[MojiWord, MojiFolder]] = []
-
+    def parse_rows(self, rows: List[MojiCollectionItem], parent_moji_folder=None):
         word_ids = []
         sentence_ids = []
         for row in rows:
-            target_id = row['targetId']
-            target_type = utils.get(row, 'targetType')
+            if row.skipped or row.invalid:
+                continue
+            target_id = row.target_id
+            target_type = row.target_type
             if target_type == 102:
                 word_ids.append(target_id)
             elif target_type == 120:
@@ -99,23 +119,24 @@ class MojiServer:
         word_details = self.get_word_details(word_ids)
         sentences = self.get_sentences(sentence_ids)
         for row in rows:
-            target_id = row['targetId']
-            target_type = utils.get(row, 'targetType')
+            if row.skipped or row.invalid:
+                continue
+            target_id = row.target_id
+            target_type = row.target_type
             try:
                 if target_type == 102:
-                    target = utils.get(row, 'target')
-                    # moji web中已经删除的数据也会在返回的数据列表中，但target为None，因此这个判断是为了排除已经删除的数据
-                    if target is None:
+                    detail = word_details.get(target_id)
+                    if detail is None:
+                        row.invalid = True
                         continue
-                    detail = word_details[target_id]
-                    result.append(
-                        MojiWord(row['title'],
+                    row.result_value = (
+                        MojiWord(row.title,
                                  target_id,
                                  target_type,
-                                 utils.get(target, 'excerpt') or '',
-                                 utils.get(target, 'spell') or '',
-                                 utils.get(target, 'accent') or '',
-                                 utils.get(target, 'pron') or '',
+                                 detail['excerpt'],
+                                 detail['spell'],
+                                 detail['accent'],
+                                 detail['pron'],
                                  detail['part_of_speech'] or '',
                                  detail['trans'] or '',
                                  detail['examples'] or '',
@@ -123,9 +144,10 @@ class MojiServer:
                 elif target_type == 103:
                     example = self.get_example(target_id)
                     if example is None:
+                        row.invalid = True
                         continue
-                    result.append(
-                        MojiWord(row['title'],
+                    row.result_value = (
+                        MojiWord(row.title,
                                  target_id,
                                  target_type,
                                  '',
@@ -139,8 +161,9 @@ class MojiServer:
                 elif target_type == 120:
                     sentence = sentences[target_id]
                     if sentence is None:
+                        row.invalid = True
                         continue
-                    result.append(
+                    row.result_value = (
                         MojiWord(sentence['title'],
                                  target_id,
                                  target_type,
@@ -153,16 +176,14 @@ class MojiServer:
                                  '',
                                  parent_moji_folder))
                 elif target_type == 1000:
-                    result.append(
-                        MojiFolder(row['title'],
-                                   row['targetId'],
-                                   row['targetType'],
+                    row.result_value = (
+                        MojiFolder(row.title,
+                                   target_id,
+                                   target_type,
                                    parent_moji_folder))
             except Exception as e:
                 common_log('处理数据出错：' + json.dumps(row, ensure_ascii=False))
                 raise e
-
-        return result
 
     # 请求多个单词数据
     @retry(times=3)
@@ -223,7 +244,11 @@ class MojiServer:
             details[word_data['word']['objectId']] = {
                 'part_of_speech': " ".join(parts_of_speech.values()),
                 'trans': trans_html,
-                'examples': examples_html
+                'examples': examples_html,
+                'excerpt': utils.get(word_data, 'word.excerpt') or '',
+                'spell': utils.get(word_data, 'word.spell') or '',
+                'accent': utils.get(word_data, 'word.accent') or '',
+                'pron': utils.get(word_data, 'word.pron') or '',
             }
         return details
 
@@ -275,7 +300,7 @@ class MojiServer:
         self.pre_request('note')
         r = requests.post(URL_USER_NOTE, json={
             'g_os': 'PCWeb',
-            "tarId": word.target_id, 
+            "tarId": word.target_id,
             "tarType": word.target_type,
             "_SessionToken": self.session_token,
             "_ApplicationId": APPLICATION_ID,
@@ -318,10 +343,6 @@ class MojiServer:
             raise Exception(f'获取单词发音文件异常, {url}')
         return res.content
 
-    def ensure_login(self):
-        if not self.session_token:
-            raise Exception('未登录')
-
     def login(self, username, password):
         self.pre_request('login')
         r = requests.post(URL_LOGIN, json={
@@ -356,17 +377,27 @@ class MojiServer:
         url = self.get_tts_url(word)
         return self.get_file(url)
 
-    def fetch_all_from_server(self, dir_id: str, 
-                              moji_folder: Optional[MojiFolder] = None) -> Iterable[MojiWord]:
-        self.ensure_login()
+    def fetch_all_from_server(self, dir_id: str,
+                              should_skip,
+                              moji_folder: Optional[MojiFolder] = None) -> Iterable[MojiCollectionItem]:
         page_index = 1
         while True:
             total_page, rows = self.fetch_from_server(dir_id, page_index)
-            mojiwords = self.parse_rows(rows, moji_folder)
 
-            # 这里查重没意义，外层有检查
-            for mojiword in mojiwords:
-                yield mojiword
+            items = []
+            for row in rows:
+                # 这里调用should_skip方法是为了提前识别出程序不需要处理的单词，减少parse_rows方法中向moji web请求的数据量
+                item = MojiCollectionItem(row['title'], row['targetId'], row['targetType'],
+                                          should_skip(row['targetId'], row['targetType']))
+                # moji web中已经删除的数据也会在返回的数据列表中，但target为None，因此这个判断是为了排除已经删除的数据
+                if row['targetType'] == 102 and utils.get(row, 'target') is None:
+                    item.invalid = True
+                items.append(item)
+
+            self.parse_rows(items, moji_folder)
+
+            for item in items:
+                yield item
 
             page_index += 1
             # 当dir_id为空时total_page始终为0

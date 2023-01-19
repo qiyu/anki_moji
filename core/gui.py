@@ -220,9 +220,9 @@ class ImportWindow(QDialog):
                     else:
                         return
 
-                    QMessageBox.question(self, '', '为了利用新模板，建议更新本地已有单词的“笔记”、“词性”、“翻译”、“例句”、“链接”字段。' + \
-                                            '现在是否更新目前选中的moji目录中的本地已有单词？' + \
-                                         '（之后仍可手动勾选更新，“笔记”字段更新比其他字段稍慢，若赶时间或不需要可以不选）')
+                    reply = QMessageBox.question(self, '', '为了利用新模板，建议更新本地已有单词的“笔记”、“词性”、“翻译”、“例句”、“链接”字段。' 
+                                                 '现在是否更新目前选中的moji目录中的本地已有单词？'
+                                                 '（之后仍可手动勾选更新，“笔记”字段更新比其他字段稍慢，若赶时间或不需要可以不选）')
                     if reply == QMessageBox.StandardButton.Yes:
                         self.update_note_check_box.setChecked(True)
                         self.update_pos_check_box.setChecked(True)

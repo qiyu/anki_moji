@@ -20,6 +20,7 @@ URL_EXAMPLE = 'https://api.mojidict.com/parse/functions/nlt-fetchExample'
 URL_SENTENCES = 'https://api.mojidict.com/parse/functions/nlt-fetchManySentences'
 URL_TTS = 'https://api.mojidict.com/parse/functions/tts-fetch'
 URL_LOGIN = 'https://api.mojidict.com/parse/login'
+URL_USER_NOTE = 'https://api.mojidict.com/parse/functions/getNote'
 
 CLIENT_VERSION = 'js3.4.1'
 APPLICATION_ID = 'E62VyFVLMiW7kvbtVq3p'
@@ -163,13 +164,6 @@ class MojiServer:
 
         return result
 
-    # 获取单个单词详情，但pron、accent、spell、excerpt的值始终为空，且title字段的值不会更新
-    def fetch_single_word(self, target_id, target_type, title):
-        moji_words = self.parse_rows([{'targetId': target_id, 'targetType': target_type, 'title': title, 'target': {}}])
-        if len(moji_words) != 1:
-            return None
-        return moji_words[0]
-
     # 请求多个单词数据
     @retry(times=3)
     def get_words_data(self, target_ids: list):
@@ -277,6 +271,25 @@ class MojiServer:
         return sentences
 
     @retry(times=3)
+    def get_user_note(self, word: MojiWord):
+        self.pre_request('note')
+        r = requests.post(URL_USER_NOTE, json={
+            'g_os': 'PCWeb',
+            "tarId": word.target_id, 
+            "tarType": word.target_type,
+            "_SessionToken": self.session_token,
+            "_ApplicationId": APPLICATION_ID,
+            "_InstallationId": INSTALLATION_ID,
+            "_ClientVersion": CLIENT_VERSION
+        }, headers=headers, timeout=(5, 5))
+        self.post_request('note')
+
+        if r.status_code != 200:
+            raise Exception(f'获取用户笔记异常, {word.target_id}')
+        note = utils.get((r.json()), 'result.result.content')
+        return note if note is not None else ''
+
+    @retry(times=3)
     def get_tts_url(self, word: MojiWord):
         self.pre_request('tts')
         r = requests.post(URL_TTS, json={
@@ -343,31 +356,17 @@ class MojiServer:
         url = self.get_tts_url(word)
         return self.get_file(url)
 
-    def fetch_all_from_server(self, dir_id: str, duplicate_func,
+    def fetch_all_from_server(self, dir_id: str, 
                               moji_folder: Optional[MojiFolder] = None) -> Iterable[MojiWord]:
         self.ensure_login()
         page_index = 1
         while True:
-            duplicate_rows = []
-            unique_rows = []
-
             total_page, rows = self.fetch_from_server(dir_id, page_index)
+            mojiwords = self.parse_rows(rows, moji_folder)
 
-            for row in rows:
-                if duplicate_func(row['targetId']):
-                    duplicate_rows.append(row)
-                else:
-                    unique_rows.append(row)
-
-            mojiwords = self.parse_rows(unique_rows, moji_folder)
-
+            # 这里查重没意义，外层有检查
             for mojiword in mojiwords:
-                # False表示没有重复
-                yield False, mojiword
-
-            # 返回重复数据只是为了展示
-            for row in duplicate_rows:
-                yield True, MojiWord(row['title'], row['targetId'], 0, '', '', '', '', '', '', '', moji_folder)
+                yield mojiword
 
             page_index += 1
             # 当dir_id为空时total_page始终为0

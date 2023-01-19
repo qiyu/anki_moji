@@ -21,53 +21,14 @@ def on_field_filter(text, field, filter_, context: TemplateRenderContext):
     return text
 
 
-def get_current_review_note():
-    from aqt import mw
-    card = mw.reviewer.card
-    if not card:
-        raise Exception('只有在复习时才可以使用该功能')
-
-    note = card.note()
-    try:
-        target_id = note['target_id']
-        target_type = int(note['target_type'])
-        title = note['title']
-    except KeyError:
-        raise Exception('当前数据不是从moji web中导入的，无法更新')
-
-    if not target_id:
-        raise Exception('当前数据不是从moji web中导入的，无法更新')
-
-    return note, target_id, target_type, title
-
-
-def refresh_current_note(note, word):
-    from aqt import mw
-
-    try:
-        if word.examples:
-            note['examples'] = word.examples
-        if word.trans:
-            note['trans'] = word.trans
-        if word.part_of_speech:
-            note['part_of_speech'] = word.part_of_speech
-        note['link'] = utils.get_link(word)
-    except KeyError:
-        raise Exception('当前笔记模板不是最新的，请先使用导入功能更新笔记模板')
-
-    op_changes = mw.col.update_note(note)
-    mw.reviewer.op_executed(op_changes, None, True)
-
-
 def check_duplicate(deck_name, target_id):
     if common.no_anki_mode:
         return False
 
     from aqt import mw
-    note_dupes = mw.col.find_notes(
-        mw.col.build_search_string(target_id, SearchNode(field_name='target_id', deck=deck_name))
-    )
-    return len(note_dupes) > 0
+    note_dupes = mw.col.find_notes(f'deck:"{deck_name}" and target_id:"{target_id}"')
+    # 直接返回note数组便于可能的update操作，同时可作为bool与之前的定义兼容
+    return [mw.col.get_note(note_id) for note_id in note_dupes]
 
 
 ALL_FIELDS = ['title', 'note', 'target_id', 'target_type', 'spell', 'accent', 'pron', 'excerpt', 'sound', 'link',
@@ -166,6 +127,6 @@ def _prepare_media_files(file):
     from aqt import mw
     target_path = os.path.join(mw.col.media.dir(), file)
     if not os.path.lexists(target_path):
-        source_path = os.path.join(mw.pm.addonFolder(), 'assets', file)
+        source_path = os.path.join(mw.pm.addonFolder(), '131403862', 'assets', file)
         shutil.copyfile(source_path, target_path)
         common_log(f'复制文件：{file}')

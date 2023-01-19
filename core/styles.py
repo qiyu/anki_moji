@@ -13,6 +13,8 @@ model_css_class = '''@font-face {
     font-size: 20px;
     font-style: normal;
     color: #FF5252;
+    padding: 20px;
+    margin: -20px;
 }
 
 

@@ -1,11 +1,11 @@
+import json
 import os
 import re
 import shutil
 
-from anki.collection import SearchNode
 from anki.template import TemplateRenderContext
 
-from . import common, styles, utils
+from . import common, styles
 from .common import common_log
 
 _MEDIA_FILES_ICONFONT = '_iconfont.7a6f8a1.ttf'
@@ -127,6 +127,44 @@ def _prepare_media_files(file):
     from aqt import mw
     target_path = os.path.join(mw.col.media.dir(), file)
     if not os.path.lexists(target_path):
-        source_path = os.path.join(mw.pm.addonFolder(), '131403862', 'assets', file)
+        source_path = os.path.join(get_addon_dir(), 'assets', file)
         shutil.copyfile(source_path, target_path)
         common_log(f'复制文件：{file}')
+
+
+def get_config():
+    try:
+        config_file = os.path.join(get_addon_dir(), 'config.json')
+        with open(config_file, 'r') as f:
+            config = json.loads(f.read())
+        if not config:
+            config = {}
+    except IOError:
+        config = {}
+    return config
+
+
+def update_config(config: dict):
+    origin = get_config()
+    origin.update(config)
+    config_file = os.path.join(get_addon_dir(), 'config.json')
+    with open(config_file, 'w') as f:
+        json.dump(origin, f, sort_keys=True, indent=2)
+
+
+def _get_module_name():
+    return __name__.split(".")[0]
+
+
+def get_addon_dir():
+    try:
+        from aqt import mw
+    except ModuleNotFoundError:
+        return os.getcwd()
+
+    if mw is None:
+        return os.getcwd()
+
+    root = mw.pm.addonFolder()
+    addon_dir = os.path.join(root, _get_module_name())
+    return addon_dir

@@ -34,7 +34,7 @@ class LoginWindow(QDialog):
         pass_label = QLabel('密码:')
         self.pass_field.setEchoMode(QLineEdit.EchoMode.Password)
         self.login_button.clicked.connect(self.login_button_clicked)
-        config = utils.get_config()
+        config = anki.get_config()
         self.login_field.setText(config.get('username', ''))
         self.pass_field.setText(config.get('password', ''))
         self.login_field.setMinimumWidth(200)
@@ -50,7 +50,7 @@ class LoginWindow(QDialog):
         self.setLayout(main_layout)
 
     def login_button_clicked(self):
-        utils.update_config({'username': self.login_field.text(), 'password': self.pass_field.text()})
+        anki.update_config({'username': self.login_field.text(), 'password': self.pass_field.text()})
         try:
             self.moji_server.login(self.login_field.text(), self.pass_field.text())
         except Exception as e:
@@ -137,7 +137,7 @@ class ImportWindow(QDialog):
         update_layout.addWidget(self.update_link_check_box, 1, 4)
         self.update_box.setLayout(update_layout)
 
-        config = utils.get_config()
+        config = anki.get_config()
         self.model_name_field.setText(config.get('model_name') or 'Moji')
         self.deck_name_field.setText(config.get('deck_name') or 'Moji')
         self.dir_id_field.setText(config.get('dir_id') or '')
@@ -206,7 +206,7 @@ class ImportWindow(QDialog):
             QMessageBox.critical(self, '', 'Deck名称中不能包含"和\\')
             return
 
-        utils.update_config(
+        anki.update_config(
             {'model_name': model_name, 'deck_name': deck_name, 'dir_id': dir_id, 'recursion': recursion})
 
         if model_name and deck_name:

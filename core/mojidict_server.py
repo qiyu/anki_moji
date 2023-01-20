@@ -172,7 +172,7 @@ class MojiServer:
                                  '',
                                  '',
                                  '',
-                                 sentence['trans'],
+                                 sentence.get('trans', ''),
                                  '',
                                  parent_moji_folder))
                 elif target_type == 1000:

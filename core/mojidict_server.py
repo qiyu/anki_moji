@@ -44,6 +44,17 @@ class MojiWord:
     examples: str
     parent: Optional[MojiFolder]
 
+    @property
+    def link(self):
+        if self.target_type == 102:
+            return "https://www.mojidict.com/details/" + self.target_id
+        elif self.target_type == 103:
+            return "https://www.mojidict.com/example/" + self.target_id
+        elif self.target_type == 120:
+            return "https://www.mojidict.com/sentence/" + self.target_id
+        else:
+            return ''
+
 
 @dataclass
 class MojiFolder:
@@ -51,6 +62,10 @@ class MojiFolder:
     target_id: str
     target_type: int
     parent: Optional[MojiFolder]
+
+    @property
+    def link(self):
+        return "https://www.mojidict.com/collection/" + self.target_id
 
 
 class MojiCollectionItem:

@@ -10,12 +10,3 @@ def get(obj: dict, path: str):
     return current
 
 
-def get_link(r):
-    if r.target_type == 102:
-        return "https://www.mojidict.com/details/" + r.target_id
-    elif r.target_type == 103:
-        return "https://www.mojidict.com/example/" + r.target_id
-    elif r.target_type == 120:
-        return "https://www.mojidict.com/sentence/" + r.target_id
-    else:
-        return ''

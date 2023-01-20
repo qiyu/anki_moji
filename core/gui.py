@@ -368,7 +368,7 @@ class WordLoader(QRunnable):
             note['target_id'] = r.target_id
             note['target_type'] = str(r.target_type)
             note['sound'] = f'[sound:moji_{r.target_id}.mp3]'
-            note['link'] = utils.get_link(r)
+            note['link'] = r.link
             note['spell'] = r.spell
             note['pron'] = r.pron
             note['excerpt'] = r.excerpt
@@ -392,8 +392,6 @@ class WordLoader(QRunnable):
                 # 避免清空用户手动填入的内容
                 if user_note:
                     note[key] = user_note
-            elif key == 'link':
-                note[key] = utils.get_link(word)
             elif key == 'sound':
                 note[key] = f'[sound:moji_{word.target_id}.mp3]'
                 file_path = storage.get_file_path(word.target_id)

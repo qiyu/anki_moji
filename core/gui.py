@@ -225,7 +225,8 @@ class ImportWindow(QDialog):
 
                 # 处理历史版本的模板数据
                 if anki.update_template(model, mw.col):
-                    reply = QMessageBox.question(self, '', '插件将会自动更新对应的卡片模板，是否继续？')
+                    reply = QMessageBox.question(self, '', '插件将会自动更新对应的卡片模板，是否继续？（如果您曾手动修改过卡片模板或css样式表，'
+                                                           '您可能需要先将现有的卡片模板或css样式表复制到别处保存，然后再执行该操作）')
                     if reply == QMessageBox.StandardButton.Yes:
                         anki.update_template(model, mw.col, force=True)
                     else:

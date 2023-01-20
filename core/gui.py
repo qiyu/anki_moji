@@ -388,7 +388,10 @@ class WordLoader(QRunnable):
         from aqt import mw
         for key in update_keys:
             if key == 'note':
-                note[key] = self.moji_server.get_user_note(word)
+                user_note = self.moji_server.get_user_note(word)
+                # 避免清空用户手动填入的内容
+                if user_note:
+                    note[key] = user_note
             elif key == 'link':
                 note[key] = utils.get_link(word)
             elif key == 'sound':
@@ -397,7 +400,10 @@ class WordLoader(QRunnable):
                 content = self.moji_server.get_tts_url_and_download(word)
                 storage.save_tts_file(file_path, content)
             else:
-                note[key] = getattr(word, key)
+                value = getattr(word, key)
+                # 避免清空用户手动填入的内容，比如有些单词没有翻译
+                if value:
+                    note[key] = value
         mw.col.update_note(note)
 
 

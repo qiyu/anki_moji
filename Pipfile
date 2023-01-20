@@ -5,7 +5,7 @@ name = "pypi"
 
 [packages]
 requests = "*"
-aqt = "2.1.55"
+aqt = "2.1.56"
 pyqt5 = ">=5.14"
 
 [dev-packages]

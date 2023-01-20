@@ -15,10 +15,11 @@ def retry(times=1, interval=1):
                 except Exception as e:
                     actual_times += 1
                     if actual_times <= times:
-                        common_log(f'出现异常, {interval}秒后第{actual_times}次重试')
+                        common_log(f'execute function {func.__name__} failed, '
+                                   f'retry in {interval} seconds({actual_times}st)')
                         time.sleep(interval)
                     else:
-                        common_log(f'重试{times}次后依然失败, 放弃重试')
+                        common_log(f'failed after {times} retries')
                         raise e
 
         return target

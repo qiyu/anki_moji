@@ -253,7 +253,6 @@ class ImportWindow(QDialog):
             QMessageBox.critical(self, '', 'Deck名称和Note名称必填')
 
     def closeEvent(self, a0: QtGui.QCloseEvent) -> None:
-        common_log('关闭导入窗口')
         if self.word_loader:
             self.word_loader.interrupt()
         self.thread_pool.waitForDone()
@@ -311,7 +310,7 @@ class WordLoader(QRunnable):
                         current_folder):
                     r = item.result_value
                     if self.interrupted:
-                        common_log('导入单词终止')
+                        common_log('interrupt importing')
                         self.interrupted = False
                         return
                     elif item.invalid:
@@ -346,14 +345,14 @@ class WordLoader(QRunnable):
 
     def process_word(self, r: MojiWord, model):
         if common.no_anki_mode:
-            common_log(f'获取到单词{r.title}')
+            common_log(f'got {r.title}')
 
         file_path = storage.get_file_path(r.target_id)
         if not storage.has_file(file_path):
             try:
                 content = self.moji_server.get_tts_url_and_download(r)
             except Exception:
-                common_log(f'获取发音文件异常:{r.target_id} {r.title}')
+                common_log(f'get tts file failed: {r.title}-{r.target_id}-{r.target_type}')
                 self.log_signal.emit(f'获取发音文件异常:{r.target_id} {r.title}')
                 raise
             storage.save_tts_file(file_path, content)
@@ -361,7 +360,7 @@ class WordLoader(QRunnable):
         user_note = self.moji_server.get_user_note(r)
 
         if common.no_anki_mode:
-            common_log(f"虚拟保存note")
+            common_log(f"virtual save note")
         else:
             from anki import notes
             from aqt import mw
@@ -382,7 +381,7 @@ class WordLoader(QRunnable):
             try:
                 mw.col.addNote(note)
             except Exception:
-                common_log('添加单词异常:' + json.dumps(r.__dict__, ensure_ascii=False))
+                common_log('add note failed: ' + json.dumps(r.__dict__, ensure_ascii=True))
                 raise
 
     def update_note(self, note, word, update_keys):

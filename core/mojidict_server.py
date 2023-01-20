@@ -99,7 +99,6 @@ class MojiServer:
         rows = utils.get(data, 'result.result')
         total_page = utils.get(data, 'result.totalPage') or 0
         if not rows:
-            common_log(f'获取单词列表为空或单词列表不存在，dir_id：{dir_id}，page_index：{page_index}')
             return total_page, []
 
         return total_page, rows
@@ -182,7 +181,7 @@ class MojiServer:
                                    target_type,
                                    parent_moji_folder))
             except Exception as e:
-                common_log('处理数据出错：' + json.dumps(row, ensure_ascii=False))
+                common_log('process failed: ' + json.dumps(row, ensure_ascii=True))
                 raise e
 
     # 请求多个单词数据

@@ -9,7 +9,7 @@ from .common import common_log
 
 
 def save_tts_file(file_path, content):
-    common_log('保存文件 path:' + file_path)
+    common_log('save file, path: ' + file_path)
     with open(file_path, 'wb') as f:
         f.write(content)
     return file_path

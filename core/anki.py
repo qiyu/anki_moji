@@ -69,7 +69,7 @@ def update_model_fields(model, collection, force=False) -> bool:
             field = collection.models.new_field(field_name)
             collection.models.add_field(model, field)
             changed = True
-            common_log(f'增加noteType字段，field_name：{field_name}')
+            common_log(f'add field to noteType, field_name: {field_name}')
 
     if changed:
         collection.models.save(model)
@@ -102,7 +102,7 @@ def update_template(model, collection, force=False) -> bool:
         model['css'] = styles.model_css_class
 
         collection.models.save(model)
-        common_log(f'更新noteType模板信息，template_name：{TEMPLATE_NAME}')
+        common_log(f'update template, template_name: {TEMPLATE_NAME}')
 
     return False
 
@@ -129,7 +129,7 @@ def _prepare_media_files(file):
     if not os.path.lexists(target_path):
         source_path = os.path.join(get_addon_dir(), 'assets', file)
         shutil.copyfile(source_path, target_path)
-        common_log(f'复制文件：{file}')
+        common_log(f'copy file: {file}')
 
 
 def get_config():

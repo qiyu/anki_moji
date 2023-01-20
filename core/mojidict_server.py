@@ -196,7 +196,7 @@ class MojiServer:
                                    target_type,
                                    parent_moji_folder))
             except Exception as e:
-                common_log('process failed: ' + json.dumps(row, ensure_ascii=True))
+                common_log('process failed: ' + json.dumps(row.__dict__, ensure_ascii=True))
                 raise e
 
     # 请求多个单词数据

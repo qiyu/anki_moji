@@ -315,7 +315,7 @@ class WordLoader(QRunnable):
                         self.interrupted = False
                         return
                     elif item.invalid:
-                        common_log(f'item {item.title}-{item.target_id}-{item.target_type} invalid')
+                        common_log(f'item {item.target_id}-{item.target_type} invalid')
                     elif item.skipped:
                         self.log_signal.emit(f'跳过重复单词:{item.target_id} {item.title}')
                         total_skipped_count += 1
@@ -353,7 +353,7 @@ class WordLoader(QRunnable):
             try:
                 content = self.moji_server.get_tts_url_and_download(r)
             except Exception:
-                common_log(f'get tts file failed: {r.title}-{r.target_id}-{r.target_type}')
+                common_log(f'get tts file failed: {r.target_id}-{r.target_type}')
                 self.log_signal.emit(f'获取发音文件异常:{r.target_id} {r.title}')
                 raise
             storage.save_tts_file(file_path, content)

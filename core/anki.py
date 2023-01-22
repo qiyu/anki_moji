@@ -1,22 +1,11 @@
 import json
 import os
-import re
 import shutil
 
 from . import common, styles
 from .common import common_log
 
 _MEDIA_FILES_ICONFONT = '_iconfont.7a6f8a1.ttf'
-
-
-def on_field_filter(text, field, filter_, context):
-    if filter_ == 'MojiToAnki_link':
-        # 将这种数据转换为http链接：<a href="https://www.mojidict.com/details/xxxx">Moji Web</a>
-        # 另外，也可以直接从note中拼接出链接
-        match = re.fullmatch('<a href="(.+)">Moji Web</a>', text)
-        if match:
-            return match.group(1)
-    return text
 
 
 def check_duplicate(deck_name, target_id):

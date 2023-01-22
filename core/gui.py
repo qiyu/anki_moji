@@ -395,11 +395,11 @@ def activate_import(moji_server):
     import_window.exec()
 
 
-def login_if_need(moji_server) -> bool:
+def login_if_need(moji_server, parent=None) -> bool:
     if moji_server.session_valid():
         return True
 
-    login_window = LoginWindow(moji_server)
+    login_window = LoginWindow(moji_server, parent=parent)
     login_window.exec()
 
     return moji_server.session_valid()

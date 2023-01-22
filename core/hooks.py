@@ -32,7 +32,7 @@ def on_js_message(handled, url, context):
             card = context.card
             note = card.note()
             moji_server: MojiServer = common.moji_server
-            login_if_need(moji_server)
+            login_if_need(moji_server, parent=mw)
             window = UpdateWindow(mw, moji_server, note)
             window.exec()
 

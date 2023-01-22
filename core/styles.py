@@ -33,6 +33,17 @@ model_css_class = '''@font-face {
     content: "\e6c7"
 }
 
+.to-moji .update-word {
+    text-decoration: none;
+    display: inline-flex;
+    vertical-align: middle;
+    margin: 3px;
+}
+
+.update-word i:before{
+    content: "\e6a7"
+}
+
 .card {
     min-height: 100%;
     font-size: 14px;
@@ -165,6 +176,9 @@ detail = '''<div class="spell">{{spell}}</div>
 <div>
     <span class="sound">{{sound}}</span>
     <a class="to-moji" href="{{MojiToAnki_link:link}}">
+        <i class="iconfont"></i>
+    </a>
+    <a class="update-word" onclick="pycmd('MojiToAnki_update')" href="#">
         <i class="iconfont"></i>
     </a>
 </div>

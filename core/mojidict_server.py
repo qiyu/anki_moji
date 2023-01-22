@@ -417,3 +417,8 @@ class MojiServer:
             # 当dir_id为空时total_page始终为0
             if not rows or (dir_id and page_index > total_page):
                 break
+
+    def get_one(self, title: str, target_id: str, target_type: int) -> MojiCollectionItem:
+        item = MojiCollectionItem(title, target_id, target_type)
+        self.parse_rows([item])
+        return item

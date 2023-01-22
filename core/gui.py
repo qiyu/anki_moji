@@ -3,15 +3,16 @@
 # Created by yu.qi on 2021/06/25.
 # Mail:qiyu.one@gmail.com
 import json
+import time
 import typing
 from collections import deque
 
 from PyQt5 import QtGui
-from PyQt5.QtCore import QThreadPool, pyqtSignal, pyqtSlot, QRunnable
+from PyQt5.QtCore import QThreadPool, pyqtSignal, pyqtSlot, QRunnable, QThread, QObject
 from PyQt5.QtWidgets import QDialog, QLabel, QLineEdit, QPushButton, QFormLayout, QVBoxLayout, QHBoxLayout, \
     QGridLayout, QPlainTextEdit, QMessageBox, QCheckBox, QGroupBox
 
-from . import utils, storage, common, anki
+from . import storage, common, anki, operations
 from .common import common_log
 from .mojidict_server import MojiServer, MojiWord, MojiFolder
 
@@ -92,7 +93,7 @@ class ImportWindow(QDialog):
         self.update_note_check_box = QCheckBox('更新笔记')
         self.update_note_check_box.setToolTip('对应笔记模板里的note字段')
         self.update_pos_check_box = QCheckBox('更新词性')
-        self.update_pos_check_box.setToolTip('对应笔记模板里的pos字段')
+        self.update_pos_check_box.setToolTip('对应笔记模板里的part_of_speech字段')
         self.update_trans_check_box = QCheckBox('更新释义')
         self.update_trans_check_box.setToolTip('对应笔记模板里的trans字段')
         self.update_examples_check_box = QCheckBox('更新例句')
@@ -327,7 +328,7 @@ class WordLoader(QRunnable):
                                 total_skipped_count += 1
                             else:
                                 for note in duplicates:
-                                    self.update_note(note, r, self.update_existing)
+                                    operations.update_note(self.moji_server, note, r, self.update_existing)
                                 self.log_signal.emit(f'更新已有单词:{r.target_id} {r.title}'
                                                      + (f' (x{len(duplicates)})' if len(duplicates) > 1 else ''))
                                 total_updated_count += len(duplicates)
@@ -385,26 +386,6 @@ class WordLoader(QRunnable):
                 common_log('add note failed: ' + json.dumps(r.__dict__, ensure_ascii=True))
                 raise
 
-    def update_note(self, note, word, update_keys):
-        from aqt import mw
-        for key in update_keys:
-            if key == 'note':
-                user_note = self.moji_server.get_user_note(word)
-                # 避免清空用户手动填入的内容
-                if user_note:
-                    note[key] = user_note
-            elif key == 'sound':
-                note[key] = f'[sound:moji_{word.target_id}.mp3]'
-                file_path = storage.get_file_path(word.target_id)
-                content = self.moji_server.get_tts_url_and_download(word)
-                storage.save_tts_file(file_path, content)
-            else:
-                value = getattr(word, key)
-                # 避免清空用户手动填入的内容，比如有些单词没有翻译
-                if value:
-                    note[key] = value
-        mw.col.update_note(note)
-
 
 def activate_import(moji_server):
     if not login_if_need(moji_server):
@@ -422,3 +403,71 @@ def login_if_need(moji_server) -> bool:
     login_window.exec()
 
     return moji_server.session_valid()
+
+
+class UpdateWindow(QDialog):
+    close_signal = pyqtSignal(bool)
+    display_signal = pyqtSignal(str)
+
+    def __init__(self, parent, moji_server, note) -> None:
+        super().__init__(parent)
+        self.moji_server = moji_server
+        self.note = note
+
+        self.label_display = QLabel()
+        main_layout = QVBoxLayout()
+        main_layout.addWidget(self.label_display)
+        self.setLayout(main_layout)
+        self.setMinimumWidth(300)
+        self.setMinimumHeight(60)
+        self.setWindowTitle('更新')
+
+        self.close_signal.connect(self.close_window)
+        self.display_signal.connect(self.change_display)
+
+        self._update_thread = UpdateThread(self, self.moji_server, self.note, self.close_signal, self.display_signal)
+        self._update_thread.start()
+
+    @pyqtSlot(bool)
+    def close_window(self, _):
+        self.close()
+
+    @pyqtSlot(str)
+    def change_display(self, value):
+        self.label_display.setText(value)
+
+    @property
+    def op_changes(self):
+        return self._update_thread.op_changes
+
+
+class UpdateThread(QThread):
+
+    def __init__(self, parent: QObject, moji_server: MojiServer, note, close_signal, display_signal, ) -> None:
+        super().__init__(parent)
+        self.moji_server = moji_server
+        self.note = note
+        self.close_signal = close_signal
+        self.display_signal = display_signal
+        self.op_changes = None
+
+    def run(self) -> None:
+        try:
+            self.display_signal.emit(f"正在更新[{self.note['title']}]")
+            item = self.moji_server.get_one(self.note['title'], self.note['target_id'], int(self.note['target_type']))
+        except (KeyError, ValueError, TypeError):
+            # 忽略异常信息
+            self.display_signal.emit('更新失败')
+        else:
+            if item.invalid:
+                self.display_signal.emit(f"更新[{self.note['title']}]失败")
+            else:
+                self.op_changes = operations.update_note(
+                    self.moji_server, self.note, item.result_value,
+                    {'spell', 'accent', 'pron', 'excerpt', 'sound', 'note', 'part_of_speech', 'trans', 'examples',
+                     'link'}
+                )
+                self.display_signal.emit(f"更新[{self.note['title']}]成功")
+
+        time.sleep(1)
+        self.close_signal.emit(True)

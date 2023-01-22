@@ -2,6 +2,7 @@ import datetime
 import time
 
 no_anki_mode = False
+moji_server = None
 
 
 def retry(times=1, interval=1):

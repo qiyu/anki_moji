@@ -1,8 +1,4 @@
-model_css_class = '''@font-face {
-  font-family: HiraMinProN-W6;
-  src: url("_HiraMinProN-W6.ttf");
-}
-
+model_css_class = '''
 @font-face {
   font-family: iconfont;
   src: url("_iconfont.7a6f8a1.ttf");
@@ -68,7 +64,7 @@ model_css_class = '''@font-face {
     color: #3d454c;
     font-size: 36px;
     font-weight: 600;
-    font-family: HiraMinProN-W6,HiraMinProN,'Hiragino Kaku Gothic Pro', Meiryo, MS Gothic, Tahoma, Arial, PingFang SC, '黑体';
+    font-family: HiraMinProN,'Hiragino Kaku Gothic Pro', Meiryo, MS Gothic, Tahoma, Arial, PingFang SC, '黑体';
 }
 
 .pron-and-accent {

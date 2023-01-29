@@ -63,9 +63,8 @@ def update_model_fields(model, collection, force=False) -> bool:
     return False
 
 
-# todo 版本发布之前，修改TEMPLATE_NAME和OLD_TEMPLATE_NAME的值
-OLD_TEMPLATE_NAME = 'spell -> detail'
-TEMPLATE_NAME = 'AnkiToMoji v2.0.0'
+OLD_TEMPLATE_NAME = 'AnkiToMoji v2.0.0'
+TEMPLATE_NAME = 'AnkiToMoji v3.0.0'
 
 
 def update_template(model, collection, force=False) -> bool:

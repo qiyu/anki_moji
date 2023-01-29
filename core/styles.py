@@ -29,11 +29,11 @@ model_css_class = '''
     content: "\e6c7"
 }
 
-.to-moji .update-word {
+.update-word {
     text-decoration: none;
     display: inline-flex;
     vertical-align: middle;
-    margin: 3px;
+    margin: 3px 3px 3px 10px;
 }
 
 .update-word i:before{

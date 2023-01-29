@@ -3,9 +3,8 @@ from anki import hooks
 from aqt import mw, gui_hooks
 
 from .core import common
-from .core.anki import on_field_filter
 from .core.gui import activate_import
-from .core.hooks import on_js_message
+from .core.hooks import on_js_message, on_field_filter
 from .core.mojidict_server import MojiServer
 
 hooks.field_filter.append(on_field_filter)

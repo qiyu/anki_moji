@@ -64,7 +64,7 @@ def update_model_fields(model, collection, force=False) -> bool:
 
 
 OLD_TEMPLATE_NAME = 'AnkiToMoji v2.0.0'
-TEMPLATE_NAME = 'AnkiToMoji v3.0.0'
+TEMPLATE_NAME = 'MojiToAnki 3'
 
 
 def update_template(model, collection, force=False) -> bool:

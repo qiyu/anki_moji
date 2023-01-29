@@ -470,5 +470,5 @@ class UpdateThread(QThread):
                 )
                 self.display_signal.emit(f"更新[{self.note['title']}]成功")
 
-        time.sleep(1)
+        time.sleep(0.7)
         self.close_signal.emit(True)

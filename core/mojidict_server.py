@@ -169,7 +169,7 @@ class MojiServer:
                                  '',
                                  '',
                                  '',
-                                 example['trans'],
+                                 example.get('trans', ''),
                                  '',
                                  parent_moji_folder))
                 elif target_type == 120:

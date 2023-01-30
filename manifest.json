@@ -3,8 +3,8 @@
     "package": "anki_moji",
     "ankiweb_id": "",
     "author": "qiyu",
-    "version": "v.3.0.0",
+    "version": "v.3.0.1",
     "homepage": "https://github.com/qiyu/anki_moji",
     "conflicts": [],
-    "mod": 1675003464
+    "mod": 1675082588
 }

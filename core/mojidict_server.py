@@ -404,7 +404,7 @@ class MojiServer:
                 item = MojiCollectionItem(row['title'], row['targetId'], row['targetType'],
                                           should_skip(row['targetId'], row['targetType']))
                 # moji web中已经删除的数据也会在返回的数据列表中，但target为None，因此这个判断是为了排除已经删除的数据
-                if row['targetType'] == 102 and utils.get(row, 'target') is None:
+                if utils.get(row, 'target') is None:
                     item.invalid = True
                 items.append(item)
 

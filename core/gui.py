@@ -7,9 +7,9 @@ import time
 import typing
 from collections import deque
 
-from PyQt5 import QtGui
-from PyQt5.QtCore import QThreadPool, pyqtSignal, pyqtSlot, QRunnable, QThread, QObject
-from PyQt5.QtWidgets import QDialog, QLabel, QLineEdit, QPushButton, QFormLayout, QVBoxLayout, QHBoxLayout, \
+from aqt.qt import QCloseEvent
+from aqt.qt import QThreadPool, pyqtSignal, pyqtSlot, QRunnable, QThread, QObject
+from aqt.qt import QDialog, QLabel, QLineEdit, QPushButton, QFormLayout, QVBoxLayout, QHBoxLayout, \
     QGridLayout, QPlainTextEdit, QMessageBox, QCheckBox, QGroupBox
 
 from . import storage, common, anki, operations
@@ -255,7 +255,7 @@ class ImportWindow(QDialog):
         else:
             QMessageBox.critical(self, '', 'Deck名称和Note名称必填')
 
-    def closeEvent(self, a0: QtGui.QCloseEvent) -> None:
+    def closeEvent(self, a0: QCloseEvent) -> None:
         if self.word_loader:
             self.word_loader.interrupt()
         self.thread_pool.waitForDone()

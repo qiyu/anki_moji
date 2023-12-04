@@ -56,8 +56,9 @@ class LoginWindow(QDialog):
         anki.update_config({'username': self.login_field.text(), 'password': self.pass_field.text()})
         try:
             self.moji_server.login(self.login_field.text(), self.pass_field.text())
-        except Exception as e:
+        except Exception:
             QMessageBox.critical(self, '', '登录失败')
+            common.get_logger().exception('登录失败')
             return
 
         self.close()
@@ -360,6 +361,7 @@ class WordLoader(QRunnable):
                 current_folder = moji_folders.popleft()
         except Exception:
             self.log_signal.emit('执行出现错误')
+            common.get_logger().exception('执行出现错误')
 
         self.log_signal.emit(f'执行结束,共增加{total_imported_count}个单词,更新{total_updated_count}个单词,跳过{total_skipped_count}个单词')
 
@@ -466,8 +468,8 @@ class UpdateThread(QThread):
             self.display_signal.emit(f"正在更新[{self.note['title']}]")
             item = self.moji_server.get_one(self.note['title'], self.note['target_id'], int(self.note['target_type']))
         except Exception:
-            # 忽略异常信息
             self.display_signal.emit('更新失败')
+            common.get_logger().exception('更新失败')
         else:
             if item.invalid:
                 self.display_signal.emit(f"更新[{self.note['title']}]失败")

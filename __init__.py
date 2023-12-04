@@ -1,4 +1,4 @@
-from PyQt5.QtWidgets import QAction
+from aqt.qt import QAction
 from anki import hooks
 from aqt import mw, gui_hooks
 

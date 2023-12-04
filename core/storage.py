@@ -5,11 +5,11 @@
 import os
 from aqt import mw
 
-from .common import common_log
+from . import common
 
 
 def save_tts_file(file_path, content):
-    common_log('save file, path: ' + file_path)
+    common.get_logger().info('save file, path: ' + file_path)
     with open(file_path, 'wb') as f:
         f.write(content)
     return file_path

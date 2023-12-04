@@ -15,8 +15,7 @@ from aqt.qt import QDialog, QLabel, QLineEdit, QPushButton, QFormLayout, QVBoxLa
 from anki import notes
 from aqt import mw
 
-from . import storage, anki, operations
-from .common import common_log
+from . import storage, anki, operations, common
 from .mojidict_server import MojiServer, MojiWord, MojiFolder
 
 
@@ -329,11 +328,11 @@ class WordLoader(QRunnable):
                             current_folder):
                         r = item.result_value
                         if self.interrupted:
-                            common_log('interrupt importing')
+                            common.get_logger().info('interrupt importing')
                             self.interrupted = False
                             return
                         elif item.invalid:
-                            common_log(f'item {item.target_id}-{item.target_type} invalid')
+                            common.get_logger().info(f'item {item.target_id}-{item.target_type} invalid')
                         elif item.skipped:
                             self.log_signal.emit(f'跳过重复单词:{item.target_id} {item.title}')
                             total_skipped_count += 1
@@ -370,7 +369,7 @@ class WordLoader(QRunnable):
             try:
                 content = self.moji_server.get_tts_url_and_download(r)
             except Exception:
-                common_log(f'get tts file failed: {r.target_id}-{r.target_type}')
+                common.get_logger().info(f'get tts file failed: {r.target_id}-{r.target_type}')
                 self.log_signal.emit(f'获取发音文件异常:{r.target_id} {r.title}')
                 raise
             storage.save_tts_file(file_path, content)
@@ -394,7 +393,7 @@ class WordLoader(QRunnable):
         try:
             mw.col.addNote(note)
         except Exception:
-            common_log('add note failed: ' + json.dumps(r.__dict__, ensure_ascii=True))
+            common.get_logger().info('add note failed: ' + json.dumps(r.__dict__, ensure_ascii=True))
             raise
 
 

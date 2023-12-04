@@ -3,13 +3,11 @@
 # Created by yu.qi on 2023/01/20.
 # Mail:qiyu.one@gmail.com
 import re
-import traceback
 
 from aqt import mw
 from aqt.reviewer import Reviewer
 
 from . import common
-from .common import common_log
 from .gui import login_if_need, UpdateWindow
 from .mojidict_server import MojiServer
 
@@ -39,8 +37,8 @@ def on_js_message(handled, url, context):
             if window.op_changes:
                 context.op_executed(window.op_changes, None, True)
             return True, None
-    except:
-        common_log('on_js_message failed:' + traceback.format_exc())
+    except Exception:
+        common.get_logger().exception('on_js_message failed')
         return True, None
 
     return handled

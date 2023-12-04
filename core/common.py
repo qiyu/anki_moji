@@ -1,7 +1,6 @@
 import datetime
 import time
 
-no_anki_mode = False
 moji_server = None
 
 

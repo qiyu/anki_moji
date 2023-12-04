@@ -11,8 +11,10 @@ from aqt.qt import QCloseEvent
 from aqt.qt import QThreadPool, pyqtSignal, pyqtSlot, QRunnable, QThread, QObject
 from aqt.qt import QDialog, QLabel, QLineEdit, QPushButton, QFormLayout, QVBoxLayout, QHBoxLayout, \
     QGridLayout, QPlainTextEdit, QMessageBox, QCheckBox, QGroupBox
+from anki import notes
+from aqt import mw
 
-from . import storage, common, anki, operations
+from . import storage, anki, operations
 from .common import common_log
 from .mojidict_server import MojiServer, MojiWord, MojiFolder
 
@@ -211,43 +213,39 @@ class ImportWindow(QDialog):
             {'model_name': model_name, 'deck_name': deck_name, 'dir_id': dir_id, 'recursion': recursion})
 
         if model_name and deck_name:
-            if common.no_anki_mode:
-                model = None
-            else:
-                from aqt import mw
-                model = anki.prepare_model(model_name, deck_name, mw.col)
-                # 处理历史版本的noteType字段数据
-                if anki.update_model_fields(model, mw.col):
-                    reply = QMessageBox.question(self, '', '插件将会在对应的笔记模板中增加字段，用来保存例句信息，是否继续？')
-                    if reply == QMessageBox.StandardButton.Yes:
-                        anki.update_model_fields(model, mw.col, force=True)
-                    else:
-                        return
+            model = anki.prepare_model(model_name, deck_name, mw.col)
+            # 处理历史版本的noteType字段数据
+            if anki.update_model_fields(model, mw.col):
+                reply = QMessageBox.question(self, '', '插件将会在对应的笔记模板中增加字段，用来保存例句信息，是否继续？')
+                if reply == QMessageBox.StandardButton.Yes:
+                    anki.update_model_fields(model, mw.col, force=True)
+                else:
+                    return
 
-                # 处理历史版本的模板数据
-                if anki.update_template(model, mw.col):
-                    reply = QMessageBox.question(self, '', '插件将会自动更新对应的卡片模板，是否继续？（如果您曾手动修改过卡片模板或css样式表，'
-                                                           '您可能需要先将现有的卡片模板或css样式表复制到别处保存，然后再执行该操作）')
-                    if reply == QMessageBox.StandardButton.Yes:
-                        anki.update_template(model, mw.col, force=True)
-                    else:
-                        return
+            # 处理历史版本的模板数据
+            if anki.update_template(model, mw.col):
+                reply = QMessageBox.question(self, '', '插件将会自动更新对应的卡片模板，是否继续？（如果您曾手动修改过卡片模板或css样式表，'
+                                                       '您可能需要先将现有的卡片模板或css样式表复制到别处保存，然后再执行该操作）')
+                if reply == QMessageBox.StandardButton.Yes:
+                    anki.update_template(model, mw.col, force=True)
+                else:
+                    return
 
-                    reply = QMessageBox.question(self, '', '为了利用新模板，建议更新本地已有单词的“笔记”、“词性”、“翻译”、“例句”、“链接”字段。'
-                                                           '现在是否更新目前选中的moji目录中的本地已有单词？'
-                                                           '（之后仍可手动勾选更新，“笔记”字段更新比其他字段稍慢，若赶时间或不需要可以不选）')
-                    if reply == QMessageBox.StandardButton.Yes:
-                        self.update_box.setChecked(True)
-                        self.update_note_check_box.setChecked(True)
-                        self.update_pos_check_box.setChecked(True)
-                        self.update_trans_check_box.setChecked(True)
-                        self.update_examples_check_box.setChecked(True)
-                        self.update_link_check_box.setChecked(True)
-                        update_existing.add('note')
-                        update_existing.add('part_of_speech')
-                        update_existing.add('trans')
-                        update_existing.add('examples')
-                        update_existing.add('link')
+                reply = QMessageBox.question(self, '', '为了利用新模板，建议更新本地已有单词的“笔记”、“词性”、“翻译”、“例句”、“链接”字段。'
+                                                       '现在是否更新目前选中的moji目录中的本地已有单词？'
+                                                       '（之后仍可手动勾选更新，“笔记”字段更新比其他字段稍慢，若赶时间或不需要可以不选）')
+                if reply == QMessageBox.StandardButton.Yes:
+                    self.update_box.setChecked(True)
+                    self.update_note_check_box.setChecked(True)
+                    self.update_pos_check_box.setChecked(True)
+                    self.update_trans_check_box.setChecked(True)
+                    self.update_examples_check_box.setChecked(True)
+                    self.update_link_check_box.setChecked(True)
+                    update_existing.add('note')
+                    update_existing.add('part_of_speech')
+                    update_existing.add('trans')
+                    update_existing.add('examples')
+                    update_existing.add('link')
 
             self.word_loader = WordLoader(self.moji_server, self.busy_signal, self.log_signal, model,
                                           model_name, deck_name, dir_id, recursion, update_existing)
@@ -347,9 +345,6 @@ class WordLoader(QRunnable):
         self.log_signal.emit(f'执行结束,共增加{total_imported_count}个单词,更新{total_updated_count}个单词,跳过{total_skipped_count}个单词')
 
     def process_word(self, r: MojiWord, model):
-        if common.no_anki_mode:
-            common_log(f'got {r.title}')
-
         file_path = storage.get_file_path(r.target_id)
         if not storage.has_file(file_path):
             try:
@@ -362,30 +357,25 @@ class WordLoader(QRunnable):
 
         user_note = self.moji_server.get_user_note(r)
 
-        if common.no_anki_mode:
-            common_log(f"virtual save note")
-        else:
-            from anki import notes
-            from aqt import mw
-            note = notes.Note(mw.col, model)
-            note['target_id'] = r.target_id
-            note['target_type'] = str(r.target_type)
-            note['sound'] = f'[sound:moji_{r.target_id}.mp3]'
-            note['link'] = r.link
-            note['spell'] = r.spell
-            note['pron'] = r.pron
-            note['excerpt'] = r.excerpt
-            note['accent'] = r.accent
-            note['title'] = r.title
-            note['note'] = user_note
-            note['part_of_speech'] = r.part_of_speech
-            note['trans'] = r.trans
-            note['examples'] = r.examples
-            try:
-                mw.col.addNote(note)
-            except Exception:
-                common_log('add note failed: ' + json.dumps(r.__dict__, ensure_ascii=True))
-                raise
+        note = notes.Note(mw.col, model)
+        note['target_id'] = r.target_id
+        note['target_type'] = str(r.target_type)
+        note['sound'] = f'[sound:moji_{r.target_id}.mp3]'
+        note['link'] = r.link
+        note['spell'] = r.spell
+        note['pron'] = r.pron
+        note['excerpt'] = r.excerpt
+        note['accent'] = r.accent
+        note['title'] = r.title
+        note['note'] = user_note
+        note['part_of_speech'] = r.part_of_speech
+        note['trans'] = r.trans
+        note['examples'] = r.examples
+        try:
+            mw.col.addNote(note)
+        except Exception:
+            common_log('add note failed: ' + json.dumps(r.__dict__, ensure_ascii=True))
+            raise
 
 
 def activate_import(moji_server):

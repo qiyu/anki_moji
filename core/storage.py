@@ -3,8 +3,8 @@
 # Created by yu.qi on 2021/03/17.
 # Mail:qiyu.one@gmail.com
 import os
+from aqt import mw
 
-from . import common
 from .common import common_log
 
 
@@ -20,10 +20,6 @@ def has_file(file_path):
 
 
 def get_file_path(target_id):
-    if common.no_anki_mode:
-        return '/tmp/moji_' + target_id + '.mp3'
-
-    from aqt import mw
     destination_folder = mw.col.media.dir()
     file_path = os.path.join(destination_folder, 'moji_' + target_id + '.mp3')
     return file_path

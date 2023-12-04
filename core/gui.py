@@ -6,6 +6,7 @@ import json
 import time
 import typing
 from collections import deque
+from concurrent.futures import Future
 
 from aqt.qt import QCloseEvent
 from aqt.qt import QThreadPool, pyqtSignal, pyqtSlot, QRunnable, QThread, QObject
@@ -57,7 +58,7 @@ class LoginWindow(QDialog):
         try:
             self.moji_server.login(self.login_field.text(), self.pass_field.text())
         except Exception as e:
-            QMessageBox.critical(self, '', '登录失败:' + str(e))
+            QMessageBox.critical(self, '', '登录失败')
             return
 
         self.close()
@@ -66,6 +67,7 @@ class LoginWindow(QDialog):
 class ImportWindow(QDialog):
     busy_signal = pyqtSignal(bool)
     log_signal = pyqtSignal(str)
+    question_signal = pyqtSignal(str, Future)
 
     def __init__(self, moji_server, parent=None):
         QDialog.__init__(self, parent)
@@ -108,6 +110,7 @@ class ImportWindow(QDialog):
         self.word_loader = None
         self.busy_signal.connect(self.change_busy)
         self.log_signal.connect(self.add_log)
+        self.question_signal.connect(self.show_question)
         self.init_window()
         self.show()
 
@@ -178,6 +181,11 @@ class ImportWindow(QDialog):
         else:
             self.log_text.clear()
 
+    @pyqtSlot(str, Future)
+    def show_question(self, title: str, future: Future):
+        reply = QMessageBox.question(self, '', title)
+        future.set_result(reply == QMessageBox.StandardButton.Yes)
+
     def import_button_clicked(self):
         model_name = self.model_name_field.text().strip()
         deck_name = self.deck_name_field.text().strip()
@@ -247,8 +255,8 @@ class ImportWindow(QDialog):
                     update_existing.add('examples')
                     update_existing.add('link')
 
-            self.word_loader = WordLoader(self.moji_server, self.busy_signal, self.log_signal, model,
-                                          model_name, deck_name, dir_id, recursion, update_existing)
+            self.word_loader = WordLoader(self.moji_server, self.busy_signal, self.log_signal, self.question_signal,
+                                          model, model_name, deck_name, dir_id, recursion, update_existing)
             self.thread_pool.start(self.word_loader)
         else:
             QMessageBox.critical(self, '', 'Deck名称和Note名称必填')
@@ -260,12 +268,13 @@ class ImportWindow(QDialog):
 
 
 class WordLoader(QRunnable):
-    def __init__(self, moji_server: MojiServer, busy_signal, log_signal, model, model_name, deck_name, dir_id,
-                 recursion, update_existing):
+    def __init__(self, moji_server: MojiServer, busy_signal, log_signal, question_signal, model, model_name, deck_name,
+                 dir_id, recursion, update_existing):
         super().__init__()
         self.moji_server = moji_server
         self.busy_signal = busy_signal
         self.log_signal = log_signal
+        self.question_signal = question_signal
         self.model = model
         self.model_name = model_name
         self.deck_name = deck_name
@@ -276,10 +285,18 @@ class WordLoader(QRunnable):
 
     def run(self) -> None:
         self.busy_signal.emit(True)
+
+        self.moji_server.should_retry = lambda: self._anki_should_retry()
         try:
             self.save_words()
         finally:
+            self.moji_server.should_retry = None
             self.busy_signal.emit(False)
+
+    def _anki_should_retry(self):
+        reply_future = Future()
+        self.question_signal.emit('出现错误，可能是网络或服务器异常，是否重试？', reply_future)
+        return reply_future.result()
 
     def interrupt(self):
         self.interrupted = True
@@ -300,47 +317,50 @@ class WordLoader(QRunnable):
         current_folder = None
         dir_id = self.dir_id
 
-        while True:
-            if current_folder is None or current_folder.parent is None:
-                if current_folder:
-                    self.log_signal.emit('开始处理目录：' + current_folder.title)
-                    dir_id = current_folder.target_id
-                for item in self.moji_server.fetch_all_from_server(
-                        dir_id,
-                        lambda target_id, target_type: self.should_skip(target_id, target_type),
-                        current_folder):
-                    r = item.result_value
-                    if self.interrupted:
-                        common_log('interrupt importing')
-                        self.interrupted = False
-                        return
-                    elif item.invalid:
-                        common_log(f'item {item.target_id}-{item.target_type} invalid')
-                    elif item.skipped:
-                        self.log_signal.emit(f'跳过重复单词:{item.target_id} {item.title}')
-                        total_skipped_count += 1
-                    elif isinstance(r, MojiWord):
-                        duplicates = anki.check_duplicate(self.deck_name, r.target_id)
-                        if duplicates:
-                            if not self.update_existing:
-                                self.log_signal.emit(f'跳过重复单词:{r.target_id} {r.title}')
-                                total_skipped_count += 1
+        try:
+            while True:
+                if current_folder is None or current_folder.parent is None:
+                    if current_folder:
+                        self.log_signal.emit('开始处理目录：' + current_folder.title)
+                        dir_id = current_folder.target_id
+                    for item in self.moji_server.fetch_all_from_server(
+                            dir_id,
+                            lambda target_id, target_type: self.should_skip(target_id, target_type),
+                            current_folder):
+                        r = item.result_value
+                        if self.interrupted:
+                            common_log('interrupt importing')
+                            self.interrupted = False
+                            return
+                        elif item.invalid:
+                            common_log(f'item {item.target_id}-{item.target_type} invalid')
+                        elif item.skipped:
+                            self.log_signal.emit(f'跳过重复单词:{item.target_id} {item.title}')
+                            total_skipped_count += 1
+                        elif isinstance(r, MojiWord):
+                            duplicates = anki.check_duplicate(self.deck_name, r.target_id)
+                            if duplicates:
+                                if not self.update_existing:
+                                    self.log_signal.emit(f'跳过重复单词:{r.target_id} {r.title}')
+                                    total_skipped_count += 1
+                                else:
+                                    for note in duplicates:
+                                        operations.update_note(self.moji_server, note, r, self.update_existing)
+                                    self.log_signal.emit(f'更新已有单词:{r.target_id} {r.title}'
+                                                         + (f' (x{len(duplicates)})' if len(duplicates) > 1 else ''))
+                                    total_updated_count += len(duplicates)
                             else:
-                                for note in duplicates:
-                                    operations.update_note(self.moji_server, note, r, self.update_existing)
-                                self.log_signal.emit(f'更新已有单词:{r.target_id} {r.title}'
-                                                     + (f' (x{len(duplicates)})' if len(duplicates) > 1 else ''))
-                                total_updated_count += len(duplicates)
-                        else:
-                            self.process_word(r, model)
-                            self.log_signal.emit(f'增加单词:{r.target_id} {r.title}')
-                            total_imported_count += 1
-                    elif isinstance(r, MojiFolder) and self.recursion:
-                        moji_folders.append(r)
+                                self.process_word(r, model)
+                                self.log_signal.emit(f'增加单词:{r.target_id} {r.title}')
+                                total_imported_count += 1
+                        elif isinstance(r, MojiFolder) and self.recursion:
+                            moji_folders.append(r)
 
-            if not moji_folders:
-                break
-            current_folder = moji_folders.popleft()
+                if not moji_folders:
+                    break
+                current_folder = moji_folders.popleft()
+        except Exception:
+            self.log_signal.emit('执行出现错误')
 
         self.log_signal.emit(f'执行结束,共增加{total_imported_count}个单词,更新{total_updated_count}个单词,跳过{total_skipped_count}个单词')
 
@@ -446,7 +466,7 @@ class UpdateThread(QThread):
         try:
             self.display_signal.emit(f"正在更新[{self.note['title']}]")
             item = self.moji_server.get_one(self.note['title'], self.note['target_id'], int(self.note['target_type']))
-        except (KeyError, ValueError, TypeError):
+        except Exception:
             # 忽略异常信息
             self.display_signal.emit('更新失败')
         else:

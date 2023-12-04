@@ -8,7 +8,7 @@ import datetime
 import json
 import time
 from dataclasses import dataclass
-from typing import Iterable, Union, Optional, List
+from typing import Iterable, Union, Optional, List, Callable
 
 import requests
 
@@ -95,8 +95,9 @@ class MojiServer:
         self.session_token_datetime = None
         # 记录上次请求完成的时间，保证多次请求接口之间的间隔，防止请求过快
         self.last_requests = {}
+        self.should_retry: Optional[Callable] = None
 
-    @retry(times=3)
+    @retry(times=3, check_should_retry=True)
     def fetch_from_server(self, dir_id, page_index):
         self.pre_request('fetch_from_server')
         r = requests.post(URL_COLLECTION, json={
@@ -200,7 +201,7 @@ class MojiServer:
                 raise e
 
     # 请求多个单词数据
-    @retry(times=3)
+    @retry(times=3, check_should_retry=True)
     def get_words_data(self, target_ids: list):
         items = []
         for target_id in target_ids:
@@ -267,7 +268,7 @@ class MojiServer:
         return details
 
     # 获取单个例句(指词单中加的单句，非单个单词的例句列表)
-    @retry(times=3)
+    @retry(times=3, check_should_retry=True)
     def get_example(self, target_id):
         self.pre_request('example')
         r = requests.post(URL_EXAMPLE, json={
@@ -284,7 +285,7 @@ class MojiServer:
             raise Exception('获取例句异常, ', r.status_code)
         return utils.get((r.json()), 'result.result')
 
-    @retry(times=3)
+    @retry(times=3, check_should_retry=True)
     def get_sentences(self, target_ids: list):
         if not target_ids:
             return {}
@@ -309,7 +310,7 @@ class MojiServer:
             sentences[data['objectId']] = data
         return sentences
 
-    @retry(times=3)
+    @retry(times=3, check_should_retry=True)
     def get_user_note(self, word: MojiWord):
         self.pre_request('note')
         r = requests.post(URL_USER_NOTE, json={
@@ -328,7 +329,7 @@ class MojiServer:
         note = utils.get((r.json()), 'result.result.content')
         return note if note is not None else ''
 
-    @retry(times=3)
+    @retry(times=3, check_should_retry=True)
     def get_tts_url(self, word: MojiWord):
         self.pre_request('tts')
         r = requests.post(URL_TTS, json={
@@ -347,7 +348,7 @@ class MojiServer:
             raise Exception(f'获取单词发音文件地址异常, {word.target_id}')
         return utils.get(r.json(), 'result.result.url')
 
-    @retry(times=3)
+    @retry(times=3, check_should_retry=True)
     def get_file(self, url):
         self.pre_request('tts_file')
         res = requests.get(url, timeout=(5, 5))

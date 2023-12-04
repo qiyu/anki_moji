@@ -4,7 +4,7 @@ import time
 moji_server = None
 
 
-def retry(times=1, interval=1):
+def retry(times=1, interval=1, check_should_retry=False):
     def decorator(func):
 
         def target(*args, **kwargs):
@@ -18,6 +18,9 @@ def retry(times=1, interval=1):
                         common_log(f'execute function {func.__name__} failed, '
                                    f'retry in {interval} seconds({actual_times}st)')
                         time.sleep(interval)
+                    elif check_should_retry and _exec_should_retry_func(*args, **kwargs):
+                        common_log(f'execute function {func.__name__} failed, '
+                                   f'retry by check_should_retry')
                     else:
                         common_log(f'failed after {times} retries')
                         raise e
@@ -25,6 +28,13 @@ def retry(times=1, interval=1):
         return target
 
     return decorator
+
+
+def _exec_should_retry_func(*args, **_):
+    if len(args) > 0:
+        should_retry = getattr(args[0], 'should_retry', None)
+        return should_retry and should_retry()
+    return False
 
 
 def common_log(content):

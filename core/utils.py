@@ -8,5 +8,3 @@ def get(obj: dict, path: str):
         if current is None:
             return None
     return current
-
-

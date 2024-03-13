@@ -5,7 +5,13 @@ import shutil
 from . import styles, common
 from aqt import mw
 
-_MEDIA_FILES_ICONFONT = '_iconfont.7a6f8a1.ttf'
+_MEDIA_FILENAMES = [
+    '_iconfont.6cad4ff.woff2',
+    '_ic_difinition_cn.svg',
+    '_ic_difinition_jp.svg',
+    '_icon-context.webp',
+    '_icon-continue.webp'
+]
 
 
 def check_duplicate(deck_name, target_id):
@@ -77,7 +83,7 @@ def update_template(model, collection, force=False) -> bool:
             # 返回True表示需要询问用户
             return True
 
-        _prepare_media_files(_MEDIA_FILES_ICONFONT)
+        _prepare_media_files(_MEDIA_FILENAMES)
         target['name'] = TEMPLATE_NAME
         target['qfmt'] = styles.front_spell
         target['afmt'] = styles.detail
@@ -90,7 +96,7 @@ def update_template(model, collection, force=False) -> bool:
 
 
 def create_new_model(model_name, collection):
-    _prepare_media_files(_MEDIA_FILES_ICONFONT)
+    _prepare_media_files(_MEDIA_FILENAMES)
 
     model = collection.models.new(model_name)
     model['css'] = styles.model_css_class
@@ -105,13 +111,14 @@ def create_new_model(model_name, collection):
     return model
 
 
-def _prepare_media_files(file):
+def _prepare_media_files(files: list):
     from aqt import mw
-    target_path = os.path.join(mw.col.media.dir(), file)
-    if not os.path.lexists(target_path):
-        source_path = os.path.join(get_addon_dir(), 'assets', file)
-        shutil.copyfile(source_path, target_path)
-        common.get_logger().info(f'copy file: {file}')
+    for file in files:
+        target_path = os.path.join(mw.col.media.dir(), file)
+        if not os.path.lexists(target_path):
+            source_path = os.path.join(get_addon_dir(), 'assets', file)
+            shutil.copyfile(source_path, target_path)
+            common.get_logger().info(f'copy file: {file}')
 
 
 def get_config():

@@ -171,8 +171,8 @@ body {
     overflow-x: hidden;
 }
 
-.android body {
-    padding: 0 9px;
+.android #content {
+    margin: 0;
 }
 
 .ios body, .ipad body {
@@ -204,10 +204,6 @@ body.nightMode {
     position: sticky;
     top: 0;
     z-index: 2;
-}
-
-.android .word-head {
-    padding: 0
 }
 
 .spell {

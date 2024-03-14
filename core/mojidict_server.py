@@ -229,8 +229,14 @@ class MojiServer:
         words_data = self.get_words_data(target_ids)
         details = {}
         for target_id in target_ids:
+            results = [result for result in words_data["result"] if result["objectId"] == target_id]
+            if not results:
+                # 该单词不存在了
+                details[target_id] = None
+                continue
+
             # id 为 target_id 的单词的信息
-            info = [result for result in words_data["result"] if result["objectId"] == target_id][0]
+            info = results[0]
             # id 为 target_id 的单词的所有词性
             all_part_of_speech \
                 = [part_of_speech for part_of_speech in words_data["105"] if part_of_speech["wordId"] == target_id]

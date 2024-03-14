@@ -21,12 +21,7 @@
     </div>
 </div>
 <script>
-    if (document.documentElement.classList.contains('android')) {
-        replayButtonClassName = 'replaybutton'
-    } else {
-        replayButtonClassName = 'replay-button'
-    }
-    replayButton = document.querySelector('.' + replayButtonClassName);
+    replayButton = document.querySelector('.replay-button');
     if(replayButton){
         replayButton.innerHTML='<i class="iconfont iconic-common-voice"></i>';
     }
@@ -108,12 +103,7 @@
 </div>
 
 <script>
-    if (document.documentElement.classList.contains('android')) {
-        replayButtonClassName = 'replaybutton'
-    } else {
-        replayButtonClassName = 'replay-button'
-    }
-    replayButton = document.querySelector('.' + replayButtonClassName);
+    replayButton = document.querySelector('.replay-button');
     if(replayButton){
         replayButton.innerHTML='<i class="iconfont iconic-common-voice"></i>';
     }

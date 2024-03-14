@@ -334,6 +334,10 @@ body.nightMode {
     content: "\e6a7"
 }
 
+.mobile .update-word {
+    display: none;
+}
+
 .word-detail>div:first-child {
     margin-top: 36px;
 }

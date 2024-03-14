@@ -241,7 +241,7 @@ class MojiServer:
             # id 为 target_id 的单词的所有笔记
             # all_notes = [note for note in words_data["300"] if note["targetId"] == target_id]
 
-            isGrammar = info['type'] == 2  # 是否是语法
+            isGrammar = utils.get(info, 'type') == 2  # 是否是语法
 
             # Anki中的词性字段HTML
             part_of_speech_html = ''

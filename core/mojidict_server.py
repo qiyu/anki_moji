@@ -360,7 +360,10 @@ class MojiServer:
                         excerpt_match = re.match("\[([^[\]]*)\]", excerpt)
                         part_of_speech_text = excerpt_match.group()[1:-1] if excerpt_match else ""
                         part_of_speech_title_A_list.append(part_of_speech_text)
-                        part_of_speech_title_B_list.append(part_of_speech_text)
+                        excerpt_b = utils.get(info, "excerptB") or excerpt
+                        excerpt_b_match = re.match("\[([^[\]]*)\]", excerpt_b)
+                        part_of_speech_b_text = excerpt_b_match.group()[1:-1] if excerpt_b_match else ""
+                        part_of_speech_title_B_list.append(part_of_speech_b_text)
                 part_of_speech_html = ''.join([f'''
                 <div class="word-speech" 
                     style="--color-word-tag-underline: {color_word_tag_underline_list[i]}"

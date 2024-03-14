@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import datetime
 import json
+import re
 import time
 from dataclasses import dataclass
 from typing import Iterable, Union, Optional, List, Callable
@@ -245,6 +246,8 @@ class MojiServer:
 
             # Anki中的词性字段HTML
             part_of_speech_html = ''
+            #
+            excerpt = utils.get(info, "excerpt") or ''
 
             if not isGrammar:
                 # 语法无词性，字段留空
@@ -258,6 +261,8 @@ class MojiServer:
                     jita = utils.get(part_of_speech, "jita")
                     katuyou = utils.get(part_of_speech, "katuyou")
                     part_of_speech_list = utils.get(part_of_speech, "partOfSpeech")
+                    valid_part_of_speech_list = [part_of_speech for part_of_speech in part_of_speech_list if
+                                                 part_of_speech is not None and 0 <= part_of_speech < 20]
                     color_word_tag_underline_list.append(
                         ["",
                          "rgb(0, 212, 247)",
@@ -279,76 +284,83 @@ class MojiServer:
                          "rgb(240, 173, 176)",
                          "rgb(240, 173, 176)",
                          "rgb(255, 169, 65)"
-                         ][part_of_speech_list[0] if len(part_of_speech_list) > 0 and part_of_speech_list[
-                            0] is not None else 1])
-                    for partOfSpeech in part_of_speech_list:
-                        if partOfSpeech != 8 or not jita:  # 动词会显示jita的“自动”/“他动”/“自他动”，因此不显示“动”
+                         ][valid_part_of_speech_list[0] if len(valid_part_of_speech_list) > 0 and
+                                                           valid_part_of_speech_list[0] is not None else 1])
+                    if len(valid_part_of_speech_list) > 0:
+                        for partOfSpeech in valid_part_of_speech_list:
+                            if partOfSpeech != 8 or not jita:  # 动词会显示jita的“自动”/“他动”/“自他动”，因此不显示“动”
+                                sub_part_of_speech_title_list.append({
+                                                                         0: "无",
+                                                                         1: "名",
+                                                                         2: "代名",
+                                                                         3: "形动",
+                                                                         4: "连体",
+                                                                         5: "副",
+                                                                         6: "接续",
+                                                                         7: "感动",
+                                                                         8: "动",
+                                                                         9: "形",
+                                                                         10: "助动",
+                                                                         11: "助",
+                                                                         12: "接头",
+                                                                         13: "接尾",
+                                                                         14: "惯用",
+                                                                         15: "形动ナリ",
+                                                                         16: "形动タリ",
+                                                                         17: "形ク",
+                                                                         18: "形シク",
+                                                                         19: "枕词"
+                                                                     }[partOfSpeech])
+                        if jita:
                             sub_part_of_speech_title_list.append({
                                                                      0: "无",
-                                                                     1: "名",
-                                                                     2: "代名",
-                                                                     3: "形动",
-                                                                     4: "连体",
-                                                                     5: "副",
-                                                                     6: "接续",
-                                                                     7: "感动",
-                                                                     8: "动",
-                                                                     9: "形",
-                                                                     10: "助动",
-                                                                     11: "助",
-                                                                     12: "接头",
-                                                                     13: "接尾",
-                                                                     14: "惯用",
-                                                                     15: "形动ナリ",
-                                                                     16: "形动タリ",
-                                                                     17: "形ク",
-                                                                     18: "形シク",
-                                                                     19: "枕词"
-                                                                 }[partOfSpeech])
-                    if jita:
-                        sub_part_of_speech_title_list.append({
-                                                                 0: "无",
-                                                                 1: "自动",
-                                                                 2: "他动",
-                                                                 3: "自他动"
-                                                             }[jita])
-                    if katuyou:
-                        sub_part_of_speech_title_list.append({
-                                                                 0: "无",
-                                                                 1: "五段",
-                                                                 2: "一段",
-                                                                 3: "カ变",
-                                                                 4: "サ变",
-                                                                 5: "ザ变",
-                                                                 6: "文言四段",
-                                                                 7: "文言上二段",
-                                                                 8: "文言下二段",
-                                                                 9: "文言カ变",
-                                                                 10: "文言サ变",
-                                                                 11: "文言ザ变",
-                                                                 12: "文言ナ变",
-                                                                 13: "文言ラ变"
-                                                             }[katuyou])
-                    part_of_speech_title_A_list.append("·".join(sub_part_of_speech_title_list))
-                    if katuyou:
-                        sub_part_of_speech_title_list.pop()
-                        sub_part_of_speech_title_list.append({
-                                                                 0: "无",
-                                                                 1: "一类",
-                                                                 2: "二类",
-                                                                 3: "三类",
-                                                                 4: "三类",
-                                                                 5: "ザ变",
-                                                                 6: "文言四段",
-                                                                 7: "文言上二段",
-                                                                 8: "文言下二段",
-                                                                 9: "文言カ变",
-                                                                 10: "文言サ变",
-                                                                 11: "文言ザ变",
-                                                                 12: "文言ナ变",
-                                                                 13: "文言ラ变"
-                                                             }[katuyou])
-                    part_of_speech_title_B_list.append("·".join(sub_part_of_speech_title_list))
+                                                                     1: "自动",
+                                                                     2: "他动",
+                                                                     3: "自他动"
+                                                                 }[jita])
+                        if katuyou:
+                            sub_part_of_speech_title_list.append({
+                                                                     0: "无",
+                                                                     1: "五段",
+                                                                     2: "一段",
+                                                                     3: "カ变",
+                                                                     4: "サ变",
+                                                                     5: "ザ变",
+                                                                     6: "文言四段",
+                                                                     7: "文言上二段",
+                                                                     8: "文言下二段",
+                                                                     9: "文言カ变",
+                                                                     10: "文言サ变",
+                                                                     11: "文言ザ变",
+                                                                     12: "文言ナ变",
+                                                                     13: "文言ラ变"
+                                                                 }[katuyou])
+                        part_of_speech_title_A_list.append("·".join(sub_part_of_speech_title_list))
+                        if katuyou:
+                            sub_part_of_speech_title_list.pop()
+                            sub_part_of_speech_title_list.append({
+                                                                     0: "无",
+                                                                     1: "一类",
+                                                                     2: "二类",
+                                                                     3: "三类",
+                                                                     4: "三类",
+                                                                     5: "ザ变",
+                                                                     6: "文言四段",
+                                                                     7: "文言上二段",
+                                                                     8: "文言下二段",
+                                                                     9: "文言カ变",
+                                                                     10: "文言サ变",
+                                                                     11: "文言ザ变",
+                                                                     12: "文言ナ变",
+                                                                     13: "文言ラ变"
+                                                                 }[katuyou])
+                        part_of_speech_title_B_list.append("·".join(sub_part_of_speech_title_list))
+                    else:
+                        # 通过excerpt获取词性
+                        excerpt_match = re.match("\[([^[\]]*)\]", excerpt)
+                        part_of_speech_text = excerpt_match.group()[1:-1] if excerpt_match else ""
+                        part_of_speech_title_A_list.append(part_of_speech_text)
+                        part_of_speech_title_B_list.append(part_of_speech_text)
                 part_of_speech_html = ''.join([f'''
                 <div class="word-speech" 
                     style="--color-word-tag-underline: {color_word_tag_underline_list[i]}"
@@ -553,7 +565,7 @@ class MojiServer:
                 'part_of_speech': part_of_speech_html,
                 'trans': trans_html,
                 'examples': examples_html,
-                'excerpt': utils.get(info, "excerpt") or '',
+                'excerpt': excerpt,
                 'spell': utils.get(info, "spell") or '',
                 'accent': utils.get(info, "accent") or '',
                 'pron': pron_html,

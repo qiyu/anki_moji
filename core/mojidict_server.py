@@ -19,7 +19,7 @@ URL_WORD_DETAIL = 'https://api.mojidict.com/parse/functions/web-word-fetchLatest
 URL_EXAMPLE = 'https://api.mojidict.com/parse/functions/nlt-fetchExample'
 URL_SENTENCES = 'https://api.mojidict.com/parse/functions/nlt-fetchManySentences'
 URL_TTS = 'https://api.mojidict.com/parse/functions/tts-fetch'
-URL_LOGIN = 'https://api.mojidict.com/parse/login'
+URL_LOGIN = 'https://api.mojidict.com/parse/functions/login'
 URL_USER_NOTE = 'https://api.mojidict.com/parse/functions/getNote'
 
 CLIENT_VERSION = 'js3.4.1'
@@ -651,18 +651,20 @@ class MojiServer:
             raise Exception(f'获取单词发音文件异常, {url}')
         return res.content
 
-    def login(self, username, password):
+    def login(self, passwd, email=None, countryCode=None, mobile=None):
         self.pre_request('login')
         r = requests.post(URL_LOGIN, json={
-            'username': username,
-            'password': password,
+            'email': email,
+            'countryCode': countryCode,
+            'mobile': mobile,
+            'passwd': passwd,
             "_ApplicationId": APPLICATION_ID,
             "_InstallationId": INSTALLATION_ID,
             "_ClientVersion": CLIENT_VERSION
         }, headers=headers, timeout=(5, 5))
         self.post_request('login')
 
-        self.session_token = utils.get(r.json(), 'sessionToken')
+        self.session_token = utils.get(r.json(), 'result.result.token')
         if not self.session_token:
             raise Exception('登录失败')
         self.session_token_datetime = datetime.datetime.now()

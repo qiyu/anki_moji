@@ -576,11 +576,16 @@ class MojiServer:
                          + ''.join([f'<li>{trans}</li>' for trans in trans_list]) \
                          + '</ol>'
 
+            # 关于 xxx_html.replace('\n', ' ') :
+            # 用于去除HTML片段中的换行
+            # 在 Ankidroid 中，有一个设置选项为 “用 HTML 替换换行”
+            # 若开启该选项，在笔记编辑器编辑卡片时会用 <br> 代替换行，保存时HTML片段中的换行会变成 <br> 而显示异常
+            # 若关闭该选项，在编辑卡片（如在note字段输入自己的笔记）时会无法换行
             details[target_id] = {
-                'part_of_speech': part_of_speech_html,
-                'trans': trans_html,
-                'examples': examples_html,
-                'excerpt': excerpt_html,
+                'part_of_speech': part_of_speech_html.replace('\n', ' '),
+                'trans': trans_html.replace('\n', ' '),
+                'examples': examples_html.replace('\n', ' '),
+                'excerpt': excerpt_html.replace('\n', ' '),
                 'spell': utils.get(info, "spell") or '',
                 'accent': utils.get(info, "accent") or '',
                 'pron': utils.get(info, "pron") or '',

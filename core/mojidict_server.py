@@ -203,9 +203,7 @@ class MojiServer:
     # 请求多个单词数据
     @utils.retry(times=3, check_should_retry=True)
     def get_words_data(self, target_ids: list):
-        items = []
-        for target_id in target_ids:
-            items.append({"objectId": target_id})
+        items = [{"objectId": target_id} for target_id in target_ids]
 
         self.pre_request('word_detail')
         rw = requests.post(URL_WORD_DETAIL, json={
@@ -218,9 +216,9 @@ class MojiServer:
         }, headers=headers, timeout=(5, 5))
         self.post_request('word_detail')
 
-        if rw.status_code != 200:
+        if rw.status_code != 200 or utils.get(rw.json(), 'result.code') != 200:
             raise Exception('获取单词详情异常, ', rw.status_code)
-        return utils.get((rw.json()), 'result')
+        return utils.get(rw.json(), 'result')
 
     # 获取词性、释义和例句
     def get_word_details(self, target_ids: list):

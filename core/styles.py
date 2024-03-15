@@ -662,6 +662,8 @@ detail = '''<script>
     {{/examples}}
 </div>
 
+<div class="hidden">{{excerpt}}</div>
+
 <script>
     replayButton = document.querySelector('.replay-button');
     if (replayButton) {
@@ -710,12 +712,16 @@ detail = '''<script>
         }
     }
     
-    pronDom = document.querySelector('.pron>span')
-    if (pronDom) {
-        const pron = pronDom.getAttribute('pron')
-        const romaji = pronDom.getAttribute('romaji')
-        const spell = document.querySelector('.spell').getInnerHTML()
-        if (pron === spell) pronDom.style.display = 'none'
+    pronDom = document.querySelector('.pron')
+    pron = pronDom.getInnerHTML()
+    spell = document.querySelector('.spell').getInnerHTML()
+    if (pron === spell) {
+        pronDom.style.display = 'none'
+    }
+    
+    extensions = document.querySelector('.extensions')
+    if (extensions) {
+        const romaji = extensions.getAttribute('romaji')
         if (showRomaji && romaji) {
             if (pron && pron !== spell) {
                 document.querySelector('.romaji-split').classList.remove('hidden')
@@ -725,7 +731,7 @@ detail = '''<script>
             romajiDom.classList.remove('hidden')
         }
         if (showTag) {
-            const tag = pronDom.getAttribute('tag')
+            const tag = extensions.getAttribute('tag')
             if (tag) {
                 document.querySelector('.tag-split').classList.remove('hidden')
                 const tagDom = document.querySelector('.word-tag')

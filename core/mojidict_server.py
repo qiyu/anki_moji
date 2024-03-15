@@ -248,12 +248,23 @@ class MojiServer:
             # id 为 target_id 的单词的所有笔记
             # all_notes = [note for note in words_data["300"] if note["targetId"] == target_id]
 
+            excerpt = utils.get(info, "excerpt") or ''
+            romaji = utils.get(info, "romaji_hepburn_CN") or ''
+            tags = (utils.get(info, "tags") or '').replace("#", "·")
+            # excerpt不用于展示，可用于拓展字段
+            excerpt_html = f'''
+            {excerpt}
+            <div class="extensions" style="display: none" 
+             romaji="{romaji}"
+             tag="{tags}"
+            >
+            </div>
+            '''
+
             isGrammar = utils.get(info, 'type') == 2  # 是否是语法
 
             # Anki中的词性字段HTML
             part_of_speech_html = ''
-            #
-            excerpt = utils.get(info, "excerpt") or ''
 
             if not isGrammar:
                 # 语法无词性，字段留空
@@ -561,11 +572,6 @@ class MojiServer:
                 <div class="conjunctive">{conjunctive_html}</div>
                 '''
 
-            pron = utils.get(info, "pron") or ''
-            romaji = utils.get(info, "romaji_hepburn_CN") or ''
-            tags = (utils.get(info, "tags") or '').replace("#", "·")
-            pron_html = f'<span pron="{pron}" romaji="{romaji}" tag="{tags}">{pron}</span>'
-
             trans_html = '<ol>' \
                          + ''.join([f'<li>{trans}</li>' for trans in trans_list]) \
                          + '</ol>'
@@ -574,10 +580,10 @@ class MojiServer:
                 'part_of_speech': part_of_speech_html,
                 'trans': trans_html,
                 'examples': examples_html,
-                'excerpt': excerpt,
+                'excerpt': excerpt_html,
                 'spell': utils.get(info, "spell") or '',
                 'accent': utils.get(info, "accent") or '',
-                'pron': pron_html,
+                'pron': utils.get(info, "pron") or '',
             }
         return details
 

@@ -569,7 +569,7 @@ front_pron = '''<div class="word-head">
 </div>
 <script>
     replayButton = document.querySelector('.replay-button');
-    if(replayButton){
+    if (replayButton) {
         replayButton.innerHTML='<i class="iconfont iconic-common-voice"></i>';
     }
 </script>
@@ -664,11 +664,10 @@ detail = '''<script>
 
 <script>
     replayButton = document.querySelector('.replay-button');
-    if(replayButton){
+    if (replayButton) {
         replayButton.innerHTML='<i class="iconfont iconic-common-voice"></i>';
     }
-</script>
-<script>
+
     subdetailHeaders = document.getElementsByClassName('subdetail_header')
     for (let subdetailHeader of subdetailHeaders) {
         subdetailHeader.isActive = () =>  subdetailHeader.nextElementSibling.classList.contains('active')
@@ -692,10 +691,9 @@ detail = '''<script>
         btnFoldDom.onclick = () => {
             isAllNotActive = subdetailHeadersArray.reduce((accumulator, subdetailHeader) => accumulator && !subdetailHeader.isActive(), true)
             subdetailHeadersArray.forEach(subdetailHeader => subdetailHeader.setActive(isAllNotActive))
+        }
     }
-    }
-</script>
-<script>
+
     if (initAllActive) {
         subdetailHeadersArray.forEach(subdetailHeader => subdetailHeader.setActive(true))
     }

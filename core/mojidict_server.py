@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import datetime
 import json
+import re
 import time
 from dataclasses import dataclass
 from typing import Iterable, Union, Optional, List, Callable
@@ -15,11 +16,11 @@ import requests
 from . import utils, common
 
 URL_COLLECTION = 'https://api.mojidict.com/parse/functions/folder-fetchContentWithRelatives'
-URL_WORD_DETAIL = 'https://api.mojidict.com/parse/functions/nlt-fetchManyLatestWords'
+URL_WORD_DETAIL = 'https://api.mojidict.com/parse/functions/web-word-fetchLatest'
 URL_EXAMPLE = 'https://api.mojidict.com/parse/functions/nlt-fetchExample'
 URL_SENTENCES = 'https://api.mojidict.com/parse/functions/nlt-fetchManySentences'
 URL_TTS = 'https://api.mojidict.com/parse/functions/tts-fetch'
-URL_LOGIN = 'https://api.mojidict.com/parse/login'
+URL_LOGIN = 'https://api.mojidict.com/parse/functions/login'
 URL_USER_NOTE = 'https://api.mojidict.com/parse/functions/getNote'
 
 CLIENT_VERSION = 'js3.4.1'
@@ -202,15 +203,12 @@ class MojiServer:
     # 请求多个单词数据
     @utils.retry(times=3, check_should_retry=True)
     def get_words_data(self, target_ids: list):
-        items = []
-        for target_id in target_ids:
-            items.append({"objectId": target_id})
+        items = [{"objectId": target_id} for target_id in target_ids]
 
         self.pre_request('word_detail')
         rw = requests.post(URL_WORD_DETAIL, json={
             "g_os": "PCWeb",
             "itemsJson": items,
-            "skipAccessories": False,
             "_SessionToken": self.session_token,
             "_ApplicationId": APPLICATION_ID,
             "_InstallationId": INSTALLATION_ID,
@@ -218,9 +216,9 @@ class MojiServer:
         }, headers=headers, timeout=(5, 5))
         self.post_request('word_detail')
 
-        if rw.status_code != 200:
+        if rw.status_code != 200 or utils.get(rw.json(), 'result.code') != 200:
             raise Exception('获取单词详情异常, ', rw.status_code)
-        return utils.get((rw.json()), 'result.result')
+        return utils.get(rw.json(), 'result')
 
     # 获取词性、释义和例句
     def get_word_details(self, target_ids: list):
@@ -228,41 +226,368 @@ class MojiServer:
             return {}
         words_data = self.get_words_data(target_ids)
         details = {}
-        for word_data in words_data:
-            parts_of_speech = {}
-            trans = {}
-            for detail in word_data['details']:
-                parts_of_speech[detail['objectId']] = detail['title'].replace('#', '・')
-            trans_html = '<ol>'
-            for subdetail in word_data['subdetails']:
-                trans_html += f'<li>{subdetail["title"]}</li>'
-                trans[subdetail['objectId']] = {
-                    'title': f"[{parts_of_speech[subdetail['detailsId']]}]{subdetail['title']}" if subdetail[
-                                                                                                       'detailsId'] in parts_of_speech else
-                    subdetail['title'],
-                    'examples': []
-                }
-            trans_html += '</ol>'
-            for example in word_data['examples']:
-                if example['subdetailsId'] in trans:
-                    trans[example['subdetailsId']]['examples'].append(
-                        (example['notationTitle'], example.get('trans') or ''))
-            examples_html = ''
-            for trans_id in trans.keys():
-                t = trans[trans_id]
-                examples_html += f'<div class="word-trans" onclick="changeDisplay(`{trans_id}`)">{t["title"]}</div><div id="trans-{trans_id}">'
-                for e in t['examples']:
-                    examples_html += f'<div class="example-title">{e[0]}</div>'
-                    examples_html += f'<div class="example-trans">{e[1]}</div>'
-                examples_html += '</div>'
-            details[word_data['word']['objectId']] = {
-                'part_of_speech': " ".join(parts_of_speech.values()),
-                'trans': trans_html,
-                'examples': examples_html,
-                'excerpt': utils.get(word_data, 'word.excerpt') or '',
-                'spell': utils.get(word_data, 'word.spell') or '',
-                'accent': utils.get(word_data, 'word.accent') or '',
-                'pron': utils.get(word_data, 'word.pron') or '',
+        for target_id in target_ids:
+            results = [result for result in words_data["result"] if result["objectId"] == target_id]
+            if not results:
+                # 该单词不存在了
+                details[target_id] = None
+                continue
+
+            # id 为 target_id 的单词的信息
+            info = results[0]
+            # id 为 target_id 的单词的所有词性
+            all_part_of_speech \
+                = [part_of_speech for part_of_speech in words_data["105"] if part_of_speech["wordId"] == target_id]
+            # id 为 target_id 的单词的所有中日双解
+            all_subdetails = [subdetail for subdetail in words_data["104"] if subdetail["wordId"] == target_id]
+            # id 为 target_id 的单词的所有例句和例句翻译
+            all_examples = [example for example in words_data["103"] if example["wordId"] == target_id]
+            # TODO 修改笔记获取方式，可以少发一次请求
+            # id 为 target_id 的单词的所有笔记
+            # all_notes = [note for note in words_data["300"] if note["targetId"] == target_id]
+
+            excerpt = utils.get(info, "excerpt") or ''
+            romaji = utils.get(info, "romaji_hepburn_CN") or ''
+            tags = (utils.get(info, "tags") or '').replace("#", "·")
+            # excerpt不用于展示，可用于拓展字段
+            excerpt_html = f'''
+            {excerpt}
+            <div class="extensions" style="display: none" 
+             romaji="{romaji}"
+             tag="{tags}"
+            >
+            </div>
+            '''
+
+            isGrammar = utils.get(info, 'type') == 2  # 是否是语法
+
+            # Anki中的词性字段HTML
+            part_of_speech_html = ''
+
+            if not isGrammar:
+                # 语法无词性，字段留空
+
+                # 用于存储该单词的所有词性(虽然新版似乎都是只有一个词性了)
+                part_of_speech_title_A_list = []  # 动词活用显示为：五段/一段/カ变/サ变
+                part_of_speech_title_B_list = []  # 动词活用显示为：一类/二类/三类
+                color_word_tag_underline_list = []  # 词性下划线的颜色（单个元素为rgb字符串，如："rgb(217, 212, 247)"）
+                for part_of_speech in all_part_of_speech:
+                    sub_part_of_speech_title_list = []
+                    jita = utils.get(part_of_speech, "jita")
+                    katuyou = utils.get(part_of_speech, "katuyou")
+                    part_of_speech_list = utils.get(part_of_speech, "partOfSpeech") or []
+                    valid_part_of_speech_list = [part_of_speech for part_of_speech in part_of_speech_list if
+                                                 part_of_speech is not None and 0 <= part_of_speech < 20]
+
+                    if len(valid_part_of_speech_list) > 0:
+                        color_word_tag_underline_list.append(["",
+                                                              "rgb(0, 212, 247)",
+                                                              "rgb(0, 212, 247)",
+                                                              "rgb(240, 173, 176)",
+                                                              "rgb(255, 169, 65)",
+                                                              "rgb(135, 158, 92)",
+                                                              "rgb(19, 194, 194)",
+                                                              "rgb(255, 169, 65)",
+                                                              "rgb(217, 212, 247)",
+                                                              "rgb(240, 173, 176)",
+                                                              "rgb(255, 169, 65)",
+                                                              "rgb(255, 169, 65)",
+                                                              "rgb(19, 194, 194)",
+                                                              "rgb(19, 194, 194)",
+                                                              "rgb(207, 3, 79)",
+                                                              "rgb(240, 173, 176)",
+                                                              "rgb(240, 173, 176)",
+                                                              "rgb(240, 173, 176)",
+                                                              "rgb(240, 173, 176)",
+                                                              "rgb(255, 169, 65)"
+                                                              ][valid_part_of_speech_list[0]])
+                        for partOfSpeech in valid_part_of_speech_list:
+                            if partOfSpeech != 8 or not jita:  # 动词会显示jita的“自动”/“他动”/“自他动”，因此不显示“动”
+                                sub_part_of_speech_title_list.append({
+                                                                         0: "无",
+                                                                         1: "名",
+                                                                         2: "代名",
+                                                                         3: "形动",
+                                                                         4: "连体",
+                                                                         5: "副",
+                                                                         6: "接续",
+                                                                         7: "感动",
+                                                                         8: "动",
+                                                                         9: "形",
+                                                                         10: "助动",
+                                                                         11: "助",
+                                                                         12: "接头",
+                                                                         13: "接尾",
+                                                                         14: "惯用",
+                                                                         15: "形动ナリ",
+                                                                         16: "形动タリ",
+                                                                         17: "形ク",
+                                                                         18: "形シク",
+                                                                         19: "枕词"
+                                                                     }[partOfSpeech])
+                        if jita:
+                            sub_part_of_speech_title_list.append({
+                                                                     0: "无",
+                                                                     1: "自动",
+                                                                     2: "他动",
+                                                                     3: "自他动"
+                                                                 }[jita])
+                        if katuyou:
+                            sub_part_of_speech_title_list.append({
+                                                                     0: "无",
+                                                                     1: "五段",
+                                                                     2: "一段",
+                                                                     3: "カ变",
+                                                                     4: "サ变",
+                                                                     5: "ザ变",
+                                                                     6: "文言四段",
+                                                                     7: "文言上二段",
+                                                                     8: "文言下二段",
+                                                                     9: "文言カ变",
+                                                                     10: "文言サ变",
+                                                                     11: "文言ザ变",
+                                                                     12: "文言ナ变",
+                                                                     13: "文言ラ变"
+                                                                 }[katuyou])
+                        part_of_speech_title_A_list.append("·".join(sub_part_of_speech_title_list))
+                        if katuyou:
+                            sub_part_of_speech_title_list.pop()
+                            sub_part_of_speech_title_list.append({
+                                                                     0: "无",
+                                                                     1: "一类",
+                                                                     2: "二类",
+                                                                     3: "三类",
+                                                                     4: "三类",
+                                                                     5: "ザ变",
+                                                                     6: "文言四段",
+                                                                     7: "文言上二段",
+                                                                     8: "文言下二段",
+                                                                     9: "文言カ变",
+                                                                     10: "文言サ变",
+                                                                     11: "文言ザ变",
+                                                                     12: "文言ナ变",
+                                                                     13: "文言ラ变"
+                                                                 }[katuyou])
+                        part_of_speech_title_B_list.append("·".join(sub_part_of_speech_title_list))
+                    else:
+                        # 通过excerpt获取词性
+                        excerpt_match = re.match("\[([^[\]]*)\]", excerpt)
+                        part_of_speech_text = excerpt_match.group()[1:-1] if excerpt_match else ""
+                        excerpt_b = utils.get(info, "excerptB") or excerpt
+                        excerpt_b_match = re.match("\[([^[\]]*)\]", excerpt_b)
+                        part_of_speech_b_text = excerpt_b_match.group()[1:-1] if excerpt_b_match else ""
+                        part_of_speech_title_A_list.append(part_of_speech_text)
+                        part_of_speech_title_B_list.append(part_of_speech_b_text)
+                        color_word_tag_underline_list.append("")
+                part_of_speech_html = ''.join([f'''
+                <div class="word-speech" 
+                    style="--color-word-tag-underline: {color}"
+                    a="{title_A}"
+                    b="{title_B}"
+                >
+                    {title_A}
+                </div>
+                ''' for color, title_A, title_B in zip(
+                    color_word_tag_underline_list, part_of_speech_title_A_list, part_of_speech_title_B_list)])
+
+            # 用于存储该单词的所有释义
+            subdetail_dict = {}
+            # 单个释义结构如下:
+            # key: subdetail_id
+            # value:
+            # {
+            #     "title-zh": "xxx...",             # 中文释义
+            #     "title-ja": "xxx...",             # 日文释义
+            #     "conjunctions": [...],            # 接续
+            #     "context-zh": "xxxxxxxxxx",       # 使用语境（中文）
+            #     "context-ja": "xxxxxxxxxx",       # 使用语境（日文）
+            #     "examples": {xxx}                 # 例句
+            # }
+            #
+            # 单个例句结构如下：
+            # key: example_id
+            # value:
+            # {
+            #     "notationTitle-ja": "xxx",
+            #     "title-zh": "xxx",
+            # }
+            for subdetail in all_subdetails:
+                subdetail_id = utils.get(subdetail, "relaId")
+                if subdetail_id not in subdetail_dict:
+                    subdetail_dict[subdetail_id] = {
+                        "title-zh": "",
+                        "title-ja": "",
+                        "conjunctions": [],
+                        "context-zh": "",
+                        "context-ja": "",
+                        "examples": {}
+                    }
+                lang = utils.get(subdetail, "lang")
+                title = (utils.get(subdetail, "title") or "").replace("\n", "<br>")
+                context = (utils.get(subdetail, "context") or "").replace("\n", "<br>")
+                conjunctions = utils.get(subdetail, "conjunctions") or []
+                if lang == "zh-CN":
+                    subdetail_dict[subdetail_id]["title-zh"] = title
+                    subdetail_dict[subdetail_id]["context-zh"] = context
+                    subdetail_dict[subdetail_id]["conjunctions"].extend(conjunctions)
+                elif lang == "ja":
+                    subdetail_dict[subdetail_id]["title-ja"] = title
+                    subdetail_dict[subdetail_id]["context-ja"] = context
+
+            for example in all_examples:
+                subdetail_id = utils.get(example, "subdetailsId")
+                if subdetail_id not in subdetail_dict:
+                    continue
+
+                examples_dict = subdetail_dict[subdetail_id]["examples"]
+                example_id = utils.get(example, "relaId")
+                if example_id not in examples_dict:
+                    examples_dict[example_id] = {
+                        "notationTitle-ja": "",
+                        "title-zh": "",
+                    }
+                lang = utils.get(example, "lang")
+                notation_title = utils.get(example, "notationTitle") or ""
+                title = utils.get(example, "title") or ""
+                if lang == "zh-CN":
+                    examples_dict[example_id]["title-zh"] = title
+                elif lang == "ja":
+                    examples_dict[example_id]["notationTitle-ja"] = notation_title
+
+            # 单个元素为 单个释义+该释义下的所有例句 的HTML片段
+            subdetail_container_html_list = []
+            # 释义列表，用于生成trans_html
+            trans_list = []
+            for (subdetail_id, subdetail) in subdetail_dict.items():
+                # 中日释义 + 接续 + 中日使用环境
+                subdetail_header_container_html = ''
+                trans_list_item = ''
+                if subdetail["title-zh"]:
+                    subdetail_header_container_html += \
+                        f'''
+                        <div class="column">
+                            <img src="_ic_difinition_cn.svg" alt="中文icon" class="icon">
+                            <span class="label">{subdetail["title-zh"]}</span>
+                        </div>
+                        '''
+                    trans_list_item += subdetail["title-zh"] + '<br>'
+                if subdetail["title-ja"]:
+                    subdetail_header_container_html += \
+                        f'''
+                        <div class="column font-JP">
+                            <img src="_ic_difinition_jp.svg" alt="日文icon" class="icon">
+                            <span class="label">{subdetail["title-ja"]}</span>
+                        </div>
+                        '''
+                    trans_list_item += subdetail["title-ja"] + ''
+                trans_list.append(trans_list_item)
+                if len(subdetail["conjunctions"]) > 0:
+                    conjunctions_text = "<br>".join(
+                        map(lambda conjunction: conjunction.replace("\n", "<br>"), subdetail["conjunctions"]))
+                    subdetail_header_container_html += \
+                        f'''
+                        <div class="column continue font-JP">
+                            <img src="_icon-continue.webp" alt="接续" class="icon_continue">
+                        </div>
+                        <div class="column">{conjunctions_text}</div>
+                        '''
+                if subdetail["context-zh"] or subdetail["context-ja"]:
+                    subdetail_header_container_html += \
+                        f'''
+                        <div class="column font-JP">
+                            <img data-v-770d6cb9="" src="_icon-context.webp" alt="使用语境" class="icon_context">
+                        </div>
+                        '''
+                if subdetail["context-zh"]:
+                    subdetail_header_container_html += \
+                        f'''
+                        <div class="column">
+                            <img src="_ic_difinition_cn.svg" alt="中文icon" class="icon">
+                            <span class="label">{subdetail["context-zh"]}</span>
+                        </div>
+                        '''
+                if subdetail["context-ja"]:
+                    subdetail_header_container_html += \
+                        f'''
+                        <div class="column context_ja font-JP">
+                            <img data-v-770d6cb9="" src="_ic_difinition_jp.svg" alt="日文icon" class="icon">
+                            <span class="label">{subdetail["context-ja"]}</span>
+                        </div>
+                        '''
+
+                # subdetail_header_container_html + 折叠例句按钮 的HTML片段
+                subdetail_header_html = \
+                    f'''
+                    <div class="subdetail-container{' noneChildren' if len(subdetail['examples']) == 0 else ''}">
+                    {subdetail_header_container_html}
+                    </div>
+                    <div class="subdetail_icon_wrap">
+                        <i class="subdetail_icon iconfont icon-arrow-right"></i>
+                    </div>
+                    '''
+                example_details_html_list = []
+                for (example_id, example) in subdetail["examples"].items():
+                    example_details_html_list.append(f'''
+                    <div class="example-inner">
+                        <div class="example-info">
+                            <div class="line1 font-JP haveNotation">{example["notationTitle-ja"]}</div>
+                            <div class="line2">{example["title-zh"]}</div>
+                        </div>
+                    </div>
+                    ''')
+                examplesContainer_html = ''.join([f'''
+                <div class="example-details">
+                    {example_details_html}
+                </div>''' for example_details_html in example_details_html_list])
+
+                subdetail_container_html_list.append(f'''
+                <div subdetailId="{subdetail_id}" class="subdetail_header">{subdetail_header_html}</div>
+                <div class="examplesContainer" style="--exampleNum: {len(subdetail["examples"])}">{examplesContainer_html}</div>
+                ''')
+
+            subdetail_containers_html = ''.join([f'''
+            <div class="subdetail_container">
+                {subdetail_container_html}
+            </div>''' for subdetail_container_html in subdetail_container_html_list])
+            # 所有释义+例句 HTML片段
+            paraphrase_html = \
+                f'''
+                <div class="paraphrase-header">
+                    <span class="title">{"详解" if isGrammar else "释义"}</span>
+                    <span class="btn-fold">
+                        <i class="iconfont iconic_toolbar_hide"></i>
+                    </span>
+                </div>
+                {subdetail_containers_html}
+                '''
+
+            # TODO 关联词 但需要多发送一次请求
+            # has_related = utils.get(info, "hasRelated") or False
+            conjunctive_html = ''
+
+            examples_html = \
+                f'''
+                <div class="paraphrase">{paraphrase_html}</div>
+                <div class="conjunctive">{conjunctive_html}</div>
+                '''
+
+            trans_html = '<ol>' \
+                         + ''.join([f'<li>{trans}</li>' for trans in trans_list]) \
+                         + '</ol>'
+
+            # 关于 xxx_html.replace('\n', ' ') :
+            # 用于去除HTML片段中的换行
+            # 在 Ankidroid 中，有一个设置选项为 “用 HTML 替换换行”
+            # 若开启该选项，在笔记编辑器编辑卡片时会用 <br> 代替换行，保存时HTML片段中的换行会变成 <br> 而显示异常
+            # 若关闭该选项，在编辑卡片（如在note字段输入自己的笔记）时会无法换行
+            details[target_id] = {
+                'part_of_speech': part_of_speech_html.replace('\n', ' '),
+                'trans': trans_html.replace('\n', ' '),
+                'examples': examples_html.replace('\n', ' '),
+                'excerpt': excerpt_html.replace('\n', ' '),
+                'spell': utils.get(info, "spell") or '',
+                'accent': utils.get(info, "accent") or '',
+                'pron': utils.get(info, "pron") or '',
             }
         return details
 
@@ -357,18 +682,20 @@ class MojiServer:
             raise Exception(f'获取单词发音文件异常, {url}')
         return res.content
 
-    def login(self, username, password):
+    def login(self, passwd, email=None, countryCode=None, mobile=None):
         self.pre_request('login')
         r = requests.post(URL_LOGIN, json={
-            'username': username,
-            'password': password,
+            'email': email,
+            'countryCode': countryCode,
+            'mobile': mobile,
+            'passwd': passwd,
             "_ApplicationId": APPLICATION_ID,
             "_InstallationId": INSTALLATION_ID,
             "_ClientVersion": CLIENT_VERSION
         }, headers=headers, timeout=(5, 5))
         self.post_request('login')
 
-        self.session_token = utils.get(r.json(), 'sessionToken')
+        self.session_token = utils.get(r.json(), 'result.result.token')
         if not self.session_token:
             raise Exception('登录失败')
         self.session_token_datetime = datetime.datetime.now()

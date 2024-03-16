@@ -10,8 +10,8 @@ from concurrent.futures import Future
 
 from aqt.qt import QCloseEvent
 from aqt.qt import QThreadPool, pyqtSignal, pyqtSlot, QRunnable, QThread, QObject
-from aqt.qt import QDialog, QLabel, QLineEdit, QPushButton, QFormLayout, QVBoxLayout, QHBoxLayout, \
-    QGridLayout, QPlainTextEdit, QMessageBox, QCheckBox, QGroupBox
+from aqt.qt import QWidget, QDialog, QLabel, QLineEdit, QPushButton, QButtonGroup, QRadioButton, QFormLayout, \
+    QVBoxLayout, QHBoxLayout, QGridLayout, QPlainTextEdit, QMessageBox, QCheckBox, QGroupBox
 from anki import notes
 from aqt import mw
 
@@ -24,42 +24,117 @@ class LoginWindow(QDialog):
         QDialog.__init__(self, parent)
         self.moji_server = moji_server
 
-        self.login_field = QLineEdit()
+        self.email_label = QLabel('邮箱:')
+        self.email_field = QLineEdit()
+        self.mobile_widget = QWidget()
+        self.mobile_label = QLabel('手机:')
+        self.country_code_field = QLineEdit()
+        self.mobile_field = QLineEdit()
+        self.pass_label = QLabel('密码:')
         self.pass_field = QLineEdit()
         self.login_button = QPushButton("登录")
+        self.methodBtnGroup = QButtonGroup()
+        self.emailLoginRatio = QRadioButton('邮箱登录')
+        self.telLoginRatio = QRadioButton('手机登录')
 
         self.init_window()
         self.show()
 
     def init_window(self):
         self.setWindowTitle('登录moji web')
-        login_label = QLabel('用户:')
-        pass_label = QLabel('密码:')
-        self.pass_field.setEchoMode(QLineEdit.EchoMode.Password)
         self.login_button.clicked.connect(self.login_button_clicked)
         config = anki.get_config()
-        self.login_field.setText(config.get('username', ''))
+
+        self.email_field.setText(config.get('username', ''))
+        self.email_field.setMinimumWidth(200)
+
+        self.pass_field.setEchoMode(QLineEdit.EchoMode.Password)
         self.pass_field.setText(config.get('password', ''))
-        self.login_field.setMinimumWidth(200)
         self.pass_field.setMinimumWidth(200)
+
+        self.country_code_field.setText(config.get('countryCode', '+86'))
+        self.country_code_field.setMaximumWidth(50)
+
+        self.mobile_field.setText(config.get('mobile', ''))
+
+        self.mobile_widget.setMinimumWidth(200)
+        mobile_layout = QHBoxLayout()
+        mobile_layout.setContentsMargins(0, 0, 0, 0)
+        mobile_layout.setSpacing(0)
+        mobile_layout.addWidget(self.country_code_field)
+        mobile_layout.addWidget(self.mobile_field)
+        self.mobile_widget.setLayout(mobile_layout)
+
         login_form = QFormLayout()
-        login_form.addRow(login_label, self.login_field)
-        login_form.addRow(pass_label, self.pass_field)
+        login_form.setContentsMargins(0, 0, 0, 0)
+        login_form.addRow(self.email_label, self.email_field)
+        login_form.addRow(self.mobile_label, self.mobile_widget)
+        login_form.addRow(self.pass_label, self.pass_field)
+
+        method_layout = QHBoxLayout()
+        method_layout.setContentsMargins(0, 0, 0, 0)
+        method_layout.addWidget(self.emailLoginRatio)
+        method_layout.addWidget(self.telLoginRatio)
+        self.methodBtnGroup.addButton(self.emailLoginRatio, 1)
+        self.methodBtnGroup.addButton(self.telLoginRatio, 2)
+        self.methodBtnGroup.idToggled.connect(self.method_ratio_clicked)
+        if config.get('login_by', 1) == 1:
+            self.emailLoginRatio.setChecked(True)
+        else:
+            self.telLoginRatio.setChecked(True)
+
         login_buttons = QHBoxLayout()
         login_buttons.addWidget(self.login_button)
+
         main_layout = QVBoxLayout()
         main_layout.addLayout(login_form)
+        main_layout.addLayout(method_layout)
         main_layout.addLayout(login_buttons)
         self.setLayout(main_layout)
 
+    def method_ratio_clicked(self, id):
+        if id == self.methodBtnGroup.id(self.emailLoginRatio):
+            self.mobile_label.hide()
+            self.mobile_widget.hide()
+            self.email_label.show()
+            self.email_field.show()
+        else:
+            self.email_label.hide()
+            self.email_field.hide()
+            self.mobile_label.show()
+            self.mobile_widget.show()
+
     def login_button_clicked(self):
-        anki.update_config({'username': self.login_field.text(), 'password': self.pass_field.text()})
-        try:
-            self.moji_server.login(self.login_field.text(), self.pass_field.text())
-        except Exception:
-            QMessageBox.critical(self, '', '登录失败')
-            common.get_logger().exception('登录失败')
-            return
+        login_by = self.methodBtnGroup.checkedId()
+        password = self.pass_field.text()
+        if login_by == 1:
+            email = self.email_field.text()
+            anki.update_config({
+                'username': email,
+                'password': password,
+                'login_by': login_by
+            })
+            try:
+                self.moji_server.login(email=email, passwd=password)
+            except Exception:
+                QMessageBox.critical(self, '', '登录失败')
+                common.get_logger().exception('登录失败')
+                return
+        else:
+            country_code = self.country_code_field.text()
+            mobile = self.mobile_field.text()
+            anki.update_config({
+                'countryCode': country_code,
+                'mobile': mobile,
+                'password': password,
+                'login_by': login_by
+            })
+            try:
+                self.moji_server.login(countryCode=country_code.replace('+', ''), mobile=mobile, passwd=password)
+            except Exception:
+                QMessageBox.critical(self, '', '登录失败')
+                common.get_logger().exception('登录失败')
+                return
 
         self.close()
 

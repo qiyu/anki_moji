@@ -423,16 +423,16 @@ class MojiServer:
                         "examples": {}
                     }
                 lang = utils.get(subdetail, "lang")
-                title = utils.get(subdetail, "title") or ""
-                context = utils.get(subdetail, "context") or ""
+                title = (utils.get(subdetail, "title") or "").replace("\n", "<br>")
+                context = (utils.get(subdetail, "context") or "").replace("\n", "<br>")
                 conjunctions = utils.get(subdetail, "conjunctions") or []
                 if lang == "zh-CN":
                     subdetail_dict[subdetail_id]["title-zh"] = title
                     subdetail_dict[subdetail_id]["context-zh"] = context
+                    subdetail_dict[subdetail_id]["conjunctions"].extend(conjunctions)
                 elif lang == "ja":
                     subdetail_dict[subdetail_id]["title-ja"] = title
                     subdetail_dict[subdetail_id]["context-ja"] = context
-                subdetail_dict[subdetail_id]["conjunctions"].extend(conjunctions)
 
             for example in all_examples:
                 subdetail_id = utils.get(example, "subdetailsId")
@@ -511,7 +511,7 @@ class MojiServer:
                         f'''
                         <div class="column context_ja font-JP">
                             <img data-v-770d6cb9="" src="_ic_difinition_jp.svg" alt="日文icon" class="icon">
-                            <span class="label">{subdetail["context-zh"]}</span>
+                            <span class="label">{subdetail["context-ja"]}</span>
                         </div>
                         '''
 

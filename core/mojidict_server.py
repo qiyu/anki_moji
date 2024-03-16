@@ -278,30 +278,29 @@ class MojiServer:
                     part_of_speech_list = utils.get(part_of_speech, "partOfSpeech") or []
                     valid_part_of_speech_list = [part_of_speech for part_of_speech in part_of_speech_list if
                                                  part_of_speech is not None and 0 <= part_of_speech < 20]
-                    color_word_tag_underline_list.append(
-                        ["",
-                         "rgb(0, 212, 247)",
-                         "rgb(0, 212, 247)",
-                         "rgb(240, 173, 176)",
-                         "rgb(255, 169, 65)",
-                         "rgb(135, 158, 92)",
-                         "rgb(19, 194, 194)",
-                         "rgb(255, 169, 65)",
-                         "rgb(217, 212, 247)",
-                         "rgb(240, 173, 176)",
-                         "rgb(255, 169, 65)",
-                         "rgb(255, 169, 65)",
-                         "rgb(19, 194, 194)",
-                         "rgb(19, 194, 194)",
-                         "rgb(207, 3, 79)",
-                         "rgb(240, 173, 176)",
-                         "rgb(240, 173, 176)",
-                         "rgb(240, 173, 176)",
-                         "rgb(240, 173, 176)",
-                         "rgb(255, 169, 65)"
-                         ][valid_part_of_speech_list[0] if len(valid_part_of_speech_list) > 0 and
-                                                           valid_part_of_speech_list[0] is not None else 1])
+
                     if len(valid_part_of_speech_list) > 0:
+                        color_word_tag_underline_list.append(["",
+                                                              "rgb(0, 212, 247)",
+                                                              "rgb(0, 212, 247)",
+                                                              "rgb(240, 173, 176)",
+                                                              "rgb(255, 169, 65)",
+                                                              "rgb(135, 158, 92)",
+                                                              "rgb(19, 194, 194)",
+                                                              "rgb(255, 169, 65)",
+                                                              "rgb(217, 212, 247)",
+                                                              "rgb(240, 173, 176)",
+                                                              "rgb(255, 169, 65)",
+                                                              "rgb(255, 169, 65)",
+                                                              "rgb(19, 194, 194)",
+                                                              "rgb(19, 194, 194)",
+                                                              "rgb(207, 3, 79)",
+                                                              "rgb(240, 173, 176)",
+                                                              "rgb(240, 173, 176)",
+                                                              "rgb(240, 173, 176)",
+                                                              "rgb(240, 173, 176)",
+                                                              "rgb(255, 169, 65)"
+                                                              ][valid_part_of_speech_list[0]])
                         for partOfSpeech in valid_part_of_speech_list:
                             if partOfSpeech != 8 or not jita:  # 动词会显示jita的“自动”/“他动”/“自他动”，因此不显示“动”
                                 sub_part_of_speech_title_list.append({
@@ -374,20 +373,22 @@ class MojiServer:
                         # 通过excerpt获取词性
                         excerpt_match = re.match("\[([^[\]]*)\]", excerpt)
                         part_of_speech_text = excerpt_match.group()[1:-1] if excerpt_match else ""
-                        part_of_speech_title_A_list.append(part_of_speech_text)
                         excerpt_b = utils.get(info, "excerptB") or excerpt
                         excerpt_b_match = re.match("\[([^[\]]*)\]", excerpt_b)
                         part_of_speech_b_text = excerpt_b_match.group()[1:-1] if excerpt_b_match else ""
+                        part_of_speech_title_A_list.append(part_of_speech_text)
                         part_of_speech_title_B_list.append(part_of_speech_b_text)
+                        color_word_tag_underline_list.append("")
                 part_of_speech_html = ''.join([f'''
                 <div class="word-speech" 
-                    style="--color-word-tag-underline: {color_word_tag_underline_list[i]}"
+                    style="--color-word-tag-underline: {color}"
                     a="{title_A}"
-                    b="{part_of_speech_title_B_list[i]}"
+                    b="{title_B}"
                 >
                     {title_A}
                 </div>
-                ''' for (i, title_A) in enumerate(part_of_speech_title_A_list)])
+                ''' for color, title_A, title_B in zip(
+                    color_word_tag_underline_list, part_of_speech_title_A_list, part_of_speech_title_B_list)])
 
             # 用于存储该单词的所有释义
             subdetail_dict = {}

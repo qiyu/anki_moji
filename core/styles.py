@@ -626,7 +626,7 @@ detail = '''<script>
     <div class="word-tool">
         {{part_of_speech}}
         {{#part_of_speech}}
-        <div class="split—line"></div>
+        <div class="split—line part-of-speech-split"></div>
         {{/part_of_speech}}
         <div class="word-tag hidden"></div>
         <div class="split—line tag-split hidden"></div>
@@ -703,6 +703,11 @@ detail = '''<script>
     wordSpeechDom = document.querySelector('.word-speech')
     if (wordSpeechDom) {
         wordSpeechDom.innerHTML = wordSpeechDom.getAttribute(katuyouVersion && katuyouVersion === 'B' ? 'b' : 'a')
+        if (!wordSpeechDom.innerHTML) {
+            wordSpeechDom.style.display = 'none'
+            const partOfSpeechSplitDom = document.querySelector('.part-of-speech-split')
+            if (partOfSpeechSplitDom) partOfSpeechSplitDom.style.display = 'none'
+        }
     }
     
     if (!showAccent) {

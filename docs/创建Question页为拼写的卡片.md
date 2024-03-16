@@ -55,7 +55,7 @@
     <div class="word-tool">
         {{part_of_speech}}
         {{#part_of_speech}}
-        <div class="split—line"></div>
+        <div class="split—line part-of-speech-split"></div>
         {{/part_of_speech}}
         <div class="word-tag hidden"></div>
         <div class="split—line tag-split hidden"></div>
@@ -90,6 +90,8 @@
     <div class="paraphrase">{{trans}}{{^trans}}{{excerpt}}{{/trans}}</div>
     {{/examples}}
 </div>
+
+<div class="hidden">{{excerpt}}</div>
 
 <script>
     replayButton = document.querySelector('.replay-button');
@@ -130,6 +132,11 @@
     wordSpeechDom = document.querySelector('.word-speech')
     if (wordSpeechDom) {
         wordSpeechDom.innerHTML = wordSpeechDom.getAttribute(katuyouVersion && katuyouVersion === 'B' ? 'b' : 'a')
+        if (!wordSpeechDom.innerHTML) {
+            wordSpeechDom.style.display = 'none'
+            const partOfSpeechSplitDom = document.querySelector('.part-of-speech-split')
+            if (partOfSpeechSplitDom) partOfSpeechSplitDom.style.display = 'none'
+        }
     }
     
     if (!showAccent) {
@@ -139,12 +146,16 @@
         }
     }
     
-    pronDom = document.querySelector('.pron>span')
-    if (pronDom) {
-        const pron = pronDom.getAttribute('pron')
-        const romaji = pronDom.getAttribute('romaji')
-        const spell = document.querySelector('.spell').getInnerHTML()
-        if (pron === spell) pronDom.style.display = 'none'
+    pronDom = document.querySelector('.pron')
+    pron = pronDom.getInnerHTML()
+    spell = document.querySelector('.spell').getInnerHTML()
+    if (pron === spell) {
+        pronDom.style.display = 'none'
+    }
+    
+    extensions = document.querySelector('.extensions')
+    if (extensions) {
+        const romaji = extensions.getAttribute('romaji')
         if (showRomaji && romaji) {
             if (pron && pron !== spell) {
                 document.querySelector('.romaji-split').classList.remove('hidden')
@@ -154,7 +165,7 @@
             romajiDom.classList.remove('hidden')
         }
         if (showTag) {
-            const tag = pronDom.getAttribute('tag')
+            const tag = extensions.getAttribute('tag')
             if (tag) {
                 document.querySelector('.tag-split').classList.remove('hidden')
                 const tagDom = document.querySelector('.word-tag')

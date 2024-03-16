@@ -483,7 +483,7 @@ class MojiServer:
                 trans_list.append(trans_list_item)
                 if len(subdetail["conjunctions"]) > 0:
                     conjunctions_text = "<br>".join(
-                        map(lambda conjunction: conjunction.replace("\\n", "<br>"), subdetail["conjunctions"]))
+                        map(lambda conjunction: conjunction.replace("\n", "<br>"), subdetail["conjunctions"]))
                     subdetail_header_container_html += \
                         f'''
                         <div class="column continue font-JP">
